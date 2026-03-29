@@ -143,14 +143,25 @@ function toggleWindow() {
 }
 
 function createTray() {
-  const iconPath = join(__dirname, '../../public/tray-icon.png')
-  const trayIcon = nativeImage.createFromPath(iconPath)
+  const iconPath = join(app.getAppPath(), 'public', 'icons8-circle-100.png')
+  let trayIcon = nativeImage.createFromPath(iconPath)
+  trayIcon = trayIcon.resize({ width: 18, height: 18 })
   trayIcon.setTemplateImage(true)
   console.log('ICON EMPTY:', trayIcon.isEmpty())
+  console.log('ICON SIZE:', trayIcon.getSize())
   tray = new Tray(trayIcon)
+  
+  tray.on('click', () => {
+    if (mainWindow) {
+      if (mainWindow.isMinimized()) mainWindow.restore()
+      mainWindow.show()
+      mainWindow.focus()
+    }
+  })
 }
 
 app.whenReady().then(() => {
+  app.dock.hide()
   createWindow()
   createTray()
   initTracking()
