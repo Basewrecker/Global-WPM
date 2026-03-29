@@ -1,0 +1,8 @@
+node_modules
+dist
+dist-electron
+release
+out
+build
+*.app
+.DS_Store
