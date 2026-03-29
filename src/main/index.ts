@@ -101,6 +101,7 @@ function createWindow() {
   })
 
   mainWindow.setAlwaysOnTop(true)
+  mainWindow.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true })
 
   mainWindow.on('move', () => {
     debouncedSavePosition()
@@ -108,7 +109,7 @@ function createWindow() {
 
   mainWindow.on('close', (e) => {
     e.preventDefault()
-    mainWindow?.hide()
+    hideWindowAnimated()
   })
 
   if (process.env.VITE_DEV_SERVER_URL) {
@@ -124,18 +125,52 @@ function createWindow() {
   })
 }
 
+function showWindowAnimated() {
+  if (!mainWindow || mainWindow.isDestroyed()) return
+
+  mainWindow.setOpacity(0)
+  mainWindow.show()
+
+  let opacity = 0
+  const interval = setInterval(() => {
+    opacity += 0.1
+    mainWindow?.setOpacity(opacity)
+
+    if (opacity >= 1) {
+      clearInterval(interval)
+      mainWindow?.setOpacity(1)
+    }
+  }, 15)
+}
+
+function hideWindowAnimated() {
+  if (!mainWindow || mainWindow.isDestroyed()) return
+
+  let opacity = 1
+  const interval = setInterval(() => {
+    opacity -= 0.1
+    mainWindow?.setOpacity(opacity)
+
+    if (opacity <= 0) {
+      clearInterval(interval)
+      mainWindow?.hide()
+      mainWindow?.setOpacity(1)
+    }
+  }, 15)
+}
+
 function showWindow() {
   if (!mainWindow || mainWindow.isDestroyed()) {
     createWindow()
   } else {
-    mainWindow.show()
+    showWindowAnimated()
     mainWindow.focus()
   }
 }
 
 function hideWindow() {
   if (mainWindow && !mainWindow.isDestroyed()) {
-    mainWindow.hide()
+    hideWindowAnimated()
   }
 }
 
@@ -166,9 +201,9 @@ function createTray() {
           if (!mainWindow) return
 
           if (mainWindow.isVisible()) {
-            mainWindow.hide()
+            hideWindowAnimated()
           } else {
-            mainWindow.show()
+            showWindowAnimated()
             mainWindow.focus()
           }
         }

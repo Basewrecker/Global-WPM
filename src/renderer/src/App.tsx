@@ -8,13 +8,41 @@ interface WPMStats {
 
 function App() {
   const [wpm, setWpm] = useState(0)
+  const [displayWpm, setDisplayWpm] = useState(0)
+  const [isDecaying, setIsDecaying] = useState(false)
 
   useEffect(() => {
     const unsubscribe = window.electronAPI.subscribeToWPM((stats: WPMStats) => {
       setWpm(stats.wpm)
+      if (stats.wpm > 0) {
+        setIsDecaying(false)
+        setDisplayWpm(stats.wpm)
+      }
     })
     return () => unsubscribe()
   }, [])
+
+  useEffect(() => {
+    if (wpm === 0 && displayWpm > 0 && !isDecaying) {
+      setIsDecaying(true)
+
+      let current = displayWpm
+
+      const interval = setInterval(() => {
+        current -= Math.max(1, Math.ceil(current * 0.08))
+
+        if (current <= 0) {
+          current = 0
+          clearInterval(interval)
+          setIsDecaying(false)
+        }
+
+        setDisplayWpm(current)
+      }, 30)
+
+      return () => clearInterval(interval)
+    }
+  }, [wpm])
 
   return (
     <div
@@ -44,7 +72,7 @@ function App() {
           fontVariantNumeric: 'tabular-nums',
         }}
       >
-        {wpm}
+        {Math.round(displayWpm)}
       </span>
       <span
         className="leading-none"
