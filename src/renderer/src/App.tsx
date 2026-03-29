@@ -18,7 +18,7 @@ function App() {
 
   return (
     <div
-      className="h-[100px] flex flex-row items-center justify-center px-6 overflow-hidden items-end"
+      className="h-[100px] flex flex-row items-center justify-center px-6 overflow-hidden select-none cursor-default"
       style={{
         background: 'rgba(28, 28, 30, 0.92)',
         backdropFilter: 'blur(25px)',
@@ -28,6 +28,9 @@ function App() {
         fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, sans-serif",
         minWidth: '145px',
         gap: '8px',
+        userSelect: 'none',
+        WebkitUserSelect: 'none',
+        WebkitAppRegion: 'drag',
       }}
     >
       <span
