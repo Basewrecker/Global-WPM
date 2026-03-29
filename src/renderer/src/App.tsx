@@ -18,20 +18,22 @@ function App() {
 
   return (
     <div
-      className="w-[120px] h-[100px] flex flex-col items-center justify-center overflow-hidden"
+      className="h-[100px] flex flex-row items-center justify-center px-6 overflow-hidden items-end"
       style={{
-        background: 'rgba(28, 28, 30, 0.85)',
-        backdropFilter: 'blur(40px)',
-        WebkitBackdropFilter: 'blur(40px)',
+        background: 'rgba(28, 28, 30, 0.92)',
+        backdropFilter: 'blur(25px)',
+        WebkitBackdropFilter: 'blur(25px)',
         borderRadius: '18px',
-        boxShadow: '0 4px 24px rgba(0, 0, 0, 0.2)',
+        border: '1px solid rgba(255, 255, 255, 0.08)',
         fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, sans-serif",
+        minWidth: '145px',
+        gap: '8px',
       }}
     >
       <span
         className="leading-none"
         style={{
-          fontSize: '44px',
+          fontSize: '42px',
           fontWeight: 600,
           lineHeight: 1,
           color: 'rgba(255, 255, 255, 0.95)',
@@ -41,9 +43,8 @@ function App() {
       >
         {wpm}
       </span>
-
       <span
-        className="leading-none mt-1"
+        className="leading-none"
         style={{
           fontSize: '11px',
           fontWeight: 500,

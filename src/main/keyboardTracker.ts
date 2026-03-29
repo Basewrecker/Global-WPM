@@ -12,27 +12,26 @@ export interface WPMStats {
 }
 
 let keystrokes: Keystroke[] = []
+let sessionStartTime: number = 0
 let lastKeypressTime: number = 0
-let wpmLogInterval: NodeJS.Timeout | null = null
 let isHookRunning = false
-const INACTIVITY_THRESHOLD = 2000
 
-function handleInactivity() {
-  const now = Date.now()
-  if (lastKeypressTime > 0 && now - lastKeypressTime > INACTIVITY_THRESHOLD) {
-    if (keystrokes.length > 0) {
-      keystrokes = []
-      lastKeypressTime = 0
-    }
-  }
-}
+const ROLLING_WINDOW_MS = 10000
+const INACTIVITY_THRESHOLD = 2000
+const MIN_CHARS = 8
+const MIN_TIME_SEC = 1.5
 
 function handleKeyDown(event: { keycode: number }) {
-  lastKeypressTime = Date.now()
+  const now = Date.now()
+  lastKeypressTime = now
+  
+  if (sessionStartTime === 0) {
+    sessionStartTime = now
+  }
   
   keystrokes.push({
     key: `key${event.keycode}`,
-    timestamp: lastKeypressTime
+    timestamp: now
   })
 }
 
@@ -43,40 +42,43 @@ function handleError(error: Error) {
 function calculateWPM(): WPMStats {
   const now = Date.now()
   
-  if (keystrokes.length === 0 || lastKeypressTime === 0) {
+  if (keystrokes.length === 0) {
+    sessionStartTime = 0
     return { wpm: 0, charCount: 0, timeWindowMs: 0 }
   }
   
   if (now - lastKeypressTime > INACTIVITY_THRESHOLD) {
+    keystrokes = []
+    sessionStartTime = 0
     return { wpm: 0, charCount: 0, timeWindowMs: 0 }
   }
   
-  const oldest = Math.min(...keystrokes.map(k => k.timestamp))
-  const newest = Math.max(...keystrokes.map(k => k.timestamp))
-  const actualWindowMs = newest - oldest
-  const minutes = actualWindowMs / 60000
-
-  const chars = keystrokes.length
-  const words = chars / 5
-
-  let wpm: number
-  if (minutes === 0) {
-    wpm = 0
-  } else {
-    wpm = Math.round(words / minutes)
+  const windowStart = now - ROLLING_WINDOW_MS
+  const recentKeystrokes = keystrokes.filter(k => k.timestamp > windowStart)
+  
+  if (recentKeystrokes.length === 0) {
+    sessionStartTime = 0
+    return { wpm: 0, charCount: 0, timeWindowMs: 0 }
   }
+  
+  const oldest = Math.min(...recentKeystrokes.map(k => k.timestamp))
+  const newest = Math.max(...recentKeystrokes.map(k => k.timestamp))
+  const actualWindowMs = newest - oldest
+  const actualSeconds = actualWindowMs / 1000
+  
+  if (recentKeystrokes.length < MIN_CHARS || actualSeconds < MIN_TIME_SEC) {
+    return { wpm: 0, charCount: recentKeystrokes.length, timeWindowMs: actualWindowMs }
+  }
+  
+  const minutes = actualSeconds / 60
+  const words = recentKeystrokes.length / 5
+  const wpm = Math.round(words / minutes)
 
   return {
     wpm: Math.max(0, wpm),
-    charCount: chars,
+    charCount: recentKeystrokes.length,
     timeWindowMs: actualWindowMs
   }
-}
-
-function logWPM() {
-  handleInactivity()
-  const stats = calculateWPM()
-  console.log(`[WPM] ${stats.wpm} | ${stats.charCount} chars`)
 }
 
 export function startTracking(): void {
@@ -85,6 +87,7 @@ export function startTracking(): void {
   }
   
   keystrokes = []
+  sessionStartTime = 0
   lastKeypressTime = 0
   
   try {
@@ -94,11 +97,6 @@ export function startTracking(): void {
     uIOhook.start()
     
     isHookRunning = true
-    
-    wpmLogInterval = setInterval(() => {
-      logWPM()
-    }, 1000)
-    
   } catch (error) {
     console.error('[TRACKER] Failed to start:', error)
   }
@@ -107,11 +105,6 @@ export function startTracking(): void {
 export function stopTracking(): void {
   if (!isHookRunning) {
     return
-  }
-  
-  if (wpmLogInterval) {
-    clearInterval(wpmLogInterval)
-    wpmLogInterval = null
   }
   
   try {
@@ -123,6 +116,7 @@ export function stopTracking(): void {
   }
   
   keystrokes = []
+  sessionStartTime = 0
   lastKeypressTime = 0
   isHookRunning = false
 }
@@ -136,7 +130,6 @@ export function getKeystrokeCount(): number {
 }
 
 export function getWPM(): WPMStats {
-  handleInactivity()
   return calculateWPM()
 }
 
