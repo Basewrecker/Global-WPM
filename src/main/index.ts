@@ -155,15 +155,7 @@ function createTray() {
   console.log('ICON EMPTY:', trayIcon.isEmpty())
   console.log('ICON SIZE:', trayIcon.getSize())
   tray = new Tray(trayIcon)
-  
-  tray.on('click', () => {
-    if (mainWindow) {
-      if (mainWindow.isMinimized()) mainWindow.restore()
-      mainWindow.show()
-      mainWindow.focus()
-    }
-  })
-  
+
   function getContextMenu() {
     const isVisible = mainWindow && mainWindow.isVisible()
 
@@ -189,7 +181,7 @@ function createTray() {
     ])
   }
 
-  tray.on('right-click', () => {
+  tray.on('click', () => {
     tray.popUpContextMenu(getContextMenu())
   })
 }
