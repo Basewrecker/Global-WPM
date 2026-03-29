@@ -106,6 +106,11 @@ function createWindow() {
     debouncedSavePosition()
   })
 
+  mainWindow.on('close', (e) => {
+    e.preventDefault()
+    mainWindow?.hide()
+  })
+
   if (process.env.VITE_DEV_SERVER_URL) {
     mainWindow.loadURL(process.env.VITE_DEV_SERVER_URL)
   } else {
@@ -158,6 +163,35 @@ function createTray() {
       mainWindow.focus()
     }
   })
+  
+  function getContextMenu() {
+    const isVisible = mainWindow && mainWindow.isVisible()
+
+    return Menu.buildFromTemplate([
+      {
+        label: isVisible ? 'Hide' : 'Show',
+        click: () => {
+          if (!mainWindow) return
+
+          if (mainWindow.isVisible()) {
+            mainWindow.hide()
+          } else {
+            mainWindow.show()
+            mainWindow.focus()
+          }
+        }
+      },
+      { type: 'separator' },
+      {
+        label: 'Quit',
+        click: () => process.exit(0)
+      }
+    ])
+  }
+
+  tray.on('right-click', () => {
+    tray.popUpContextMenu(getContextMenu())
+  })
 }
 
 app.whenReady().then(() => {
@@ -178,3 +212,5 @@ app.on('window-all-closed', () => {
 app.on('activate', () => {
   showWindow()
 })
+
+
