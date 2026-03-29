@@ -1,6 +1,7 @@
 import { app, BrowserWindow, screen, Tray, Menu, nativeImage } from 'electron'
 import { join } from 'path'
 import { initTracking, stopTracking, getWPM } from './keyboardTracker'
+import Store from 'electron-store'
 
 process.env.DIST_ELECTRON = join(__dirname, '..')
 process.env.DIST = join(process.env.DIST_ELECTRON, '../dist')
@@ -11,17 +12,48 @@ process.env.VITE_PUBLIC = process.env.VITE_DEV_SERVER_URL
 let mainWindow: BrowserWindow | null = null
 let tray: Tray | null = null
 let wpmUpdateInterval: NodeJS.Timeout | null = null
+let saveTimeout: NodeJS.Timeout | null = null
 
 const WINDOW_WIDTH = 145
 const WINDOW_HEIGHT = 100
 const preload = join(__dirname, '../preload/index.js')
 
-function getScreenPosition() {
+const store = new Store({
+  name: 'window-position',
+  defaults: {
+    x: undefined,
+    y: undefined
+  }
+})
+
+function getSavedPosition() {
+  const savedX = store.get('x') as number | undefined
+  const savedY = store.get('y') as number | undefined
+  
+  if (savedX !== undefined && savedY !== undefined) {
+    return { x: savedX, y: savedY }
+  }
+  
   const { width } = screen.getPrimaryDisplay().workAreaSize
   return {
     x: Math.round(width - WINDOW_WIDTH - 10),
     y: 30
   }
+}
+
+function savePosition() {
+  if (!mainWindow || mainWindow.isDestroyed()) return
+  
+  const [x, y] = mainWindow.getPosition()
+  store.set('x', x)
+  store.set('y', y)
+}
+
+function debouncedSavePosition() {
+  if (saveTimeout) {
+    clearTimeout(saveTimeout)
+  }
+  saveTimeout = setTimeout(savePosition, 200)
 }
 
 function startWPMBroadcast() {
@@ -43,7 +75,7 @@ function stopWPMBroadcast() {
 }
 
 function createWindow() {
-  const pos = getScreenPosition()
+  const pos = getSavedPosition()
   
   mainWindow = new BrowserWindow({
     width: WINDOW_WIDTH,
@@ -70,6 +102,10 @@ function createWindow() {
 
   mainWindow.setAlwaysOnTop(true)
 
+  mainWindow.on('move', () => {
+    debouncedSavePosition()
+  })
+
   if (process.env.VITE_DEV_SERVER_URL) {
     mainWindow.loadURL(process.env.VITE_DEV_SERVER_URL)
   } else {
@@ -87,8 +123,6 @@ function showWindow() {
   if (!mainWindow || mainWindow.isDestroyed()) {
     createWindow()
   } else {
-    const pos = getScreenPosition()
-    mainWindow.setPosition(pos.x, pos.y, false)
     mainWindow.show()
     mainWindow.focus()
   }
