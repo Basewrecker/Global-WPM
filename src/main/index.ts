@@ -143,25 +143,11 @@ function toggleWindow() {
 }
 
 function createTray() {
-  const iconPath = join(process.env.VITE_PUBLIC, 'tray-icon.png')
-  const icon = nativeImage.createFromPath(iconPath)
-  
-  tray = new Tray(icon)
-  tray.setToolTip('WPM Tracker')
-  
-  tray.on('click', () => {
-    toggleWindow()
-  })
-  
-  tray.on('right-click', () => {
-    const contextMenu = Menu.buildFromTemplate([
-      { label: 'Show', click: showWindow },
-      { label: 'Hide', click: hideWindow },
-      { type: 'separator' },
-      { label: 'Quit', click: () => app.quit() }
-    ])
-    tray?.popUpContextMenu(contextMenu)
-  })
+  const iconPath = join(__dirname, '../../public/tray-icon.png')
+  const trayIcon = nativeImage.createFromPath(iconPath)
+  trayIcon.setTemplateImage(true)
+  console.log('ICON EMPTY:', trayIcon.isEmpty())
+  tray = new Tray(trayIcon)
 }
 
 app.whenReady().then(() => {
