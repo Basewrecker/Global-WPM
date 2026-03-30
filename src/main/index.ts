@@ -221,6 +221,19 @@ function createTray() {
       },
       { type: 'separator' },
       {
+        label: 'Stats',
+        click: () => {
+          console.log('Stats clicked')
+        }
+      },
+      {
+        label: 'Settings',
+        click: () => {
+          console.log('Settings clicked')
+        }
+      },
+      { type: 'separator' },
+      {
         label: 'Quit',
         click: () => process.exit(0)
       }
