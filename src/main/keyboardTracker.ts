@@ -21,7 +21,46 @@ const INACTIVITY_THRESHOLD = 3500
 const MIN_CHARS = 8
 const MIN_TIME_SEC = 1.5
 
-function handleKeyDown(event: { keycode: number }) {
+function isTypingKey(key: string): boolean {
+  if (!key) return false
+
+  const k = key.toLowerCase()
+
+  if (k.length === 1) return true
+
+  if (
+    k.includes('arrow') ||
+    k === 'backspace' ||
+    k === 'enter' ||
+    k === ' '
+  ) {
+    return true
+  }
+
+  if (
+    k.includes('volume') ||
+    k.includes('brightness') ||
+    k.includes('media') ||
+    k.startsWith('f') ||
+    k === 'shift' ||
+    k === 'control' ||
+    k === 'alt' ||
+    k === 'meta' ||
+    k === 'capslock' ||
+    k === 'escape' ||
+    k === 'tab'
+  ) {
+    return false
+  }
+
+  return true
+}
+
+function handleKeyDown(event: { keycode: number; key?: string }) {
+  const key = event.key || `key${event.keycode}`
+  
+  if (!isTypingKey(key)) return
+  
   const now = Date.now()
   lastKeypressTime = now
   
@@ -30,7 +69,7 @@ function handleKeyDown(event: { keycode: number }) {
   }
   
   keystrokes.push({
-    key: `key${event.keycode}`,
+    key,
     timestamp: now
   })
 }
