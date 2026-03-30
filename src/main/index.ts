@@ -183,12 +183,23 @@ function toggleWindow() {
 }
 
 function createTray() {
-  const iconPath = join(app.getAppPath(), 'public', 'icons8-circle-100.png')
+  if (tray) {
+    tray.destroy()
+  }
+  
+  const iconPath = join(__dirname, '../../public/trayTemplate.png')
   let trayIcon = nativeImage.createFromPath(iconPath)
-  trayIcon = trayIcon.resize({ width: 18, height: 18 })
+  
+  if (trayIcon.isEmpty()) {
+    console.error('Tray icon failed to load')
+  }
+  
+  trayIcon = trayIcon.resize({ width: 16, height: 16 })
   trayIcon.setTemplateImage(true)
-  console.log('ICON EMPTY:', trayIcon.isEmpty())
-  console.log('ICON SIZE:', trayIcon.getSize())
+  
+  console.log('Tray recreated with updated icon')
+  console.log('Icon path:', iconPath)
+  
   tray = new Tray(trayIcon)
 
   function getContextMenu() {
