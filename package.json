@@ -1,32 +1,39 @@
 {
-  "name": "electron-app",
-  "version": "1.0.0",
-  "description": "Electron desktop app with React, Vite, Tailwind CSS, TypeScript",
+  "name": "wpm-tracker",
+  "version": "0.1.0",
+  "description": "WPM Tracker - macOS menu bar application",
   "main": "dist-electron/main/index.js",
   "scripts": {
     "dev": "vite",
     "start": "electron .",
-    "electron:dev": "concurrently \"vite\" \"wait-on http://localhost:5173 && electron .\"",
-    "build": "vite build && electron-builder"
+    "build": "vite build",
+    "dist": "npm run build && electron-builder"
   },
   "build": {
-    "appId": "com.app.electron-app",
-    "productName": "Electron App",
+    "appId": "com.wpmtracker.app",
+    "productName": "WPM Tracker",
     "directories": {
       "output": "release"
     },
     "files": [
       "dist/**/*",
-      "dist-electron/**/*"
+      "dist-electron/**/*",
+      "public/**/*"
+    ],
+    "extraResources": [
+      {
+        "from": "public",
+        "to": "public"
+      }
     ],
     "mac": {
-      "target": "dmg"
-    },
-    "win": {
-      "target": "nsis"
-    },
-    "linux": {
-      "target": "AppImage"
+      "target": [
+        "dmg",
+        "zip"
+      ],
+      "category": "public.app-category.productivity",
+      "hardenedRuntime": true,
+      "gatekeeperAssess": false
     }
   },
   "devDependencies": {
