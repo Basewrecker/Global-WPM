@@ -17,7 +17,7 @@ let lastKeypressTime: number = 0
 let isHookRunning = false
 
 const ROLLING_WINDOW_MS = 10000
-const INACTIVITY_THRESHOLD = 2000
+const INACTIVITY_THRESHOLD = 3500
 const MIN_CHARS = 8
 const MIN_TIME_SEC = 1.5
 
