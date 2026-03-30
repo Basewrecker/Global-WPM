@@ -6,14 +6,24 @@ interface WPMStats {
   timeWindowMs: number
 }
 
+function getWpmColor(wpm: number): string {
+  if (wpm === 0) return '#9ca3af'
+  if (wpm < 60) return '#ef4444'
+  if (wpm < 90) return '#9ca3af'
+  if (wpm < 120) return '#22c55e'
+  return '#a855f7'
+}
+
 function App() {
   const [wpm, setWpm] = useState(0)
   const [displayWpm, setDisplayWpm] = useState(0)
   const [isDecaying, setIsDecaying] = useState(false)
+  const [wpmColor, setWpmColor] = useState('#9ca3af')
 
   useEffect(() => {
     const unsubscribe = window.electronAPI.subscribeToWPM((stats: WPMStats) => {
       setWpm(stats.wpm)
+      setWpmColor(getWpmColor(stats.wpm))
       if (stats.wpm > 0) {
         setIsDecaying(false)
         setDisplayWpm(stats.wpm)
@@ -67,9 +77,10 @@ function App() {
           fontSize: '42px',
           fontWeight: 600,
           lineHeight: 1,
-          color: 'rgba(255, 255, 255, 0.95)',
+          color: wpmColor,
           letterSpacing: '-0.02em',
           fontVariantNumeric: 'tabular-nums',
+          transition: 'color 0.15s ease',
         }}
       >
         {Math.round(displayWpm)}
