@@ -14,7 +14,6 @@ let mainWindow: BrowserWindow | null = null
 let tray: Tray | null = null
 let settingsWindow: BrowserWindow | null = null
 let wpmUpdateInterval: NodeJS.Timeout | null = null
-let saveTimeout: NodeJS.Timeout | null = null
 let fadeInterval: NodeJS.Timeout | null = null
 let lastMenuBarWpm = 0
 let menuBarAnimationTimeouts: NodeJS.Timeout[] = []
@@ -30,8 +29,7 @@ const preload = join(__dirname, '../preload/index.js')
 const store = new Store({
   name: 'window-position',
   defaults: {
-    x: undefined,
-    y: undefined
+    overlayBounds: null as { x: number; y: number } | null
   }
 })
 
@@ -49,36 +47,6 @@ function safeSend(win: BrowserWindow | null, channel: string, data?: unknown) {
 }
 
 let opacityTimeout: NodeJS.Timeout | null = null
-
-function getSavedPosition() {
-  const savedX = store.get('x') as number | undefined
-  const savedY = store.get('y') as number | undefined
-  
-  if (savedX !== undefined && savedY !== undefined) {
-    return { x: savedX, y: savedY }
-  }
-  
-  const { width } = screen.getPrimaryDisplay().workAreaSize
-  return {
-    x: Math.round(width - WINDOW_WIDTH - 10),
-    y: 30
-  }
-}
-
-function savePosition() {
-  if (!mainWindow || mainWindow.isDestroyed()) return
-  
-  const [x, y] = mainWindow.getPosition()
-  store.set('x', x)
-  store.set('y', y)
-}
-
-function debouncedSavePosition() {
-  if (saveTimeout) {
-    clearTimeout(saveTimeout)
-  }
-  saveTimeout = setTimeout(savePosition, 200)
-}
 
 function getMenuBarWpm(wpm: number): string {
   if (Number(wpm) === 0) return `${wpm}`
@@ -149,14 +117,35 @@ function stopWPMBroadcast() {
   }
 }
 
+function setTopRightPosition() {
+  if (!mainWindow || mainWindow.isDestroyed()) return
+  
+  const { width } = screen.getPrimaryDisplay().workAreaSize
+  const x = Math.round(width - WINDOW_WIDTH - 10)
+  const y = 30
+  
+  mainWindow.setPosition(x, y)
+}
+
 function createWindow() {
-  const pos = getSavedPosition()
+  const savedBounds = store.get('overlayBounds') as { x: number; y: number } | null
+  const { width, height } = screen.getPrimaryDisplay().workAreaSize
+  
+  let initialX: number | undefined
+  let initialY: number | undefined
+  
+  if (savedBounds) {
+    if (savedBounds.x <= width && savedBounds.y <= height) {
+      initialX = savedBounds.x
+      initialY = savedBounds.y
+    }
+  }
   
   mainWindow = new BrowserWindow({
     width: WINDOW_WIDTH,
     height: WINDOW_HEIGHT,
-    x: pos.x,
-    y: pos.y,
+    x: initialX,
+    y: initialY,
     frame: false,
     transparent: true,
     resizable: false,
@@ -178,8 +167,29 @@ function createWindow() {
   mainWindow.setAlwaysOnTop(true)
   mainWindow.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true })
 
+  mainWindow.on('ready-to-show', () => {
+    if (!savedBounds) {
+      setTopRightPosition()
+      setTimeout(setTopRightPosition, 50)
+      setTimeout(setTopRightPosition, 150)
+    }
+  })
+
+  mainWindow.on('resize', () => {
+    if (!savedBounds) {
+      setTopRightPosition()
+    }
+  })
+
+  let moveTimeout: NodeJS.Timeout | null = null
   mainWindow.on('move', () => {
-    debouncedSavePosition()
+    if (moveTimeout) clearTimeout(moveTimeout)
+    moveTimeout = setTimeout(() => {
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        const [x, y] = mainWindow.getPosition()
+        store.set('overlayBounds', { x, y })
+      }
+    }, 200)
   })
 
   mainWindow.on('close', (e) => {
@@ -201,6 +211,10 @@ function createWindow() {
       clearTimeout(opacityTimeout)
       opacityTimeout = null
     }
+    if (moveTimeout) {
+      clearTimeout(moveTimeout)
+      moveTimeout = null
+    }
   })
 
   if (process.env.VITE_DEV_SERVER_URL) {
@@ -213,6 +227,7 @@ function createWindow() {
     mainWindow?.show()
     mainWindow?.focus()
     startWPMBroadcast()
+    setTopRightPosition()
   })
 }
 
