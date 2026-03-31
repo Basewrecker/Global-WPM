@@ -6,6 +6,7 @@ export interface Settings {
   general: {
     launchAtLogin: boolean
     showMenuBarWpm: boolean
+    globalShortcut: string
   }
   display: {
     showOverlay: boolean
@@ -31,6 +32,7 @@ const defaultSettings: Settings = {
   general: {
     launchAtLogin: false,
     showMenuBarWpm: false,
+    globalShortcut: 'Alt+Shift+W',
   },
   display: {
     showOverlay: true,
@@ -40,7 +42,7 @@ const defaultSettings: Settings = {
     smartColouring: true,
   },
   behaviour: {
-    inactivityTimeout: 5000,
+    inactivityTimeout: 3500,
     minKeystrokes: 10,
   },
   tracking: {
@@ -119,6 +121,10 @@ function validateSettings(s: Settings): Settings {
   validated.general.showMenuBarWpm = typeof s.general?.showMenuBarWpm === 'boolean'
     ? s.general.showMenuBarWpm
     : defaultSettings.general.showMenuBarWpm
+
+  validated.general.globalShortcut = typeof s.general?.globalShortcut === 'string' && s.general.globalShortcut.length > 0
+    ? s.general.globalShortcut
+    : defaultSettings.general.globalShortcut
 
   validated.display.showOverlay = typeof s.display?.showOverlay === 'boolean'
     ? s.display.showOverlay

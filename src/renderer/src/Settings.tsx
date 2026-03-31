@@ -1,10 +1,13 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Settings as SettingsIcon, Sun, Sliders, Activity, Wrench } from 'lucide-react'
+
+const DEFAULT_SHORTCUT = 'Alt+Shift+W'
 
 interface Settings {
   general: {
     launchAtLogin: boolean
     showMenuBarWpm: boolean
+    globalShortcut: string
   }
   display: {
     showOverlay: boolean
@@ -30,6 +33,7 @@ const defaultSettings: Settings = {
   general: {
     launchAtLogin: false,
     showMenuBarWpm: false,
+    globalShortcut: DEFAULT_SHORTCUT,
   },
   display: {
     showOverlay: true,
@@ -116,36 +120,6 @@ function SettingRow({ label, children, isLast }: { label: string; children: Reac
   )
 }
 
-function SliderRow({ label, value, min, max, step, onChange, isLast }: {
-  label: string; value: number; min: number; max: number; step: number; onChange: (v: number) => void; isLast?: boolean
-}) {
-  return (
-    <div style={{ padding: '12px 0', borderBottom: isLast ? 'none' : '1px solid rgba(255,255,255,0.04)' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
-        <span style={{ fontSize: '13px', color: '#e5e5e7' }}>{label}</span>
-        <span style={{ fontSize: '13px', color: '#8e8e93' }}>{Math.round(value * 100)}%</span>
-      </div>
-      <input
-        type="range"
-        min={min}
-        max={max}
-        step={step}
-        value={value}
-        onChange={(e) => onChange(Number(e.target.value))}
-        style={{
-          width: '100%',
-          height: '4px',
-          borderRadius: '2px',
-          background: `linear-gradient(to right, #30d158 ${((value - min) / (max - min)) * 100}%, #48484a ${((value - min) / (max - min)) * 100}%)`,
-          appearance: 'none',
-          cursor: 'pointer',
-          outline: 'none',
-        }}
-      />
-    </div>
-  )
-}
-
 function NumberRow({ label, value, min, max, onChange, isLast }: {
   label: string; value: number; min: number; max: number; onChange: (v: number) => void; isLast?: boolean
 }) {
@@ -174,6 +148,125 @@ function NumberRow({ label, value, min, max, onChange, isLast }: {
   )
 }
 
+function formatShortcut(shortcut: string): string {
+  return shortcut
+    .replace(/CommandOrControl|Ctrl/gi, '⌘')
+    .replace(/Alt/gi, '⌥')
+    .replace(/Control/gi, '⌃')
+    .replace(/Shift/gi, '⇧')
+    .replace(/\+/g, ' + ')
+}
+
+function ShortcutRow({ label, shortcut, onChange, isLast }: {
+  label: string; shortcut: string; onChange: (s: string) => void; isLast?: boolean
+}) {
+  const [listening, setListening] = useState(false)
+
+  useEffect(() => {
+    if (!listening) {
+      return
+    }
+
+    const keys = new Set<string>()
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      e.preventDefault()
+      e.stopPropagation()
+
+      if (e.repeat) return
+
+      const modifierKeys = ['Shift', 'Alt', 'Control', 'Meta']
+      
+      if (modifierKeys.includes(e.key)) {
+        if (e.key === 'Shift') keys.add('Shift')
+        if (e.key === 'Alt') keys.add('Alt')
+        if (e.key === 'Control') keys.add('Control')
+        if (e.key === 'Meta') keys.add('CommandOrControl')
+        return
+      }
+
+      let finalKey = e.key
+      if (finalKey.length === 1) {
+        finalKey = finalKey.toUpperCase()
+      } else if (finalKey.startsWith('Arrow')) {
+        finalKey = finalKey.replace('Arrow', '')
+      } else if (finalKey === 'Space') {
+        finalKey = 'Space'
+      }
+
+      if (['Up', 'Down', 'Left', 'Right', 'Space', 'Enter', 'Backspace', 'Tab', 'Escape', 'Delete'].includes(finalKey)) {
+        keys.add(finalKey)
+      } else if (finalKey.length === 1 || finalKey.length > 1) {
+        keys.add(finalKey)
+      }
+
+      if (keys.size >= 2) {
+        const accelerator = Array.from(keys).join('+')
+        onChange(accelerator)
+        setListening(false)
+        keys.clear()
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown, { capture: true })
+    return () => window.removeEventListener('keydown', handleKeyDown, { capture: true })
+  }, [listening, onChange])
+
+  const handleReset = () => {
+    onChange(DEFAULT_SHORTCUT)
+  }
+
+  const isDefault = shortcut === DEFAULT_SHORTCUT
+
+  return (
+    <div style={{
+      display: 'flex',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      padding: '12px 0',
+      borderBottom: isLast ? 'none' : '1px solid rgba(255,255,255,0.04)',
+    }}>
+      <span style={{ fontSize: '13px', color: '#e5e5e7' }}>{label}</span>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+        <div
+          onClick={() => setListening(true)}
+          onBlur={() => setListening(false)}
+          style={{
+            padding: '6px 12px',
+            backgroundColor: listening ? 'rgba(48, 209, 88, 0.2)' : 'rgba(44, 44, 46, 0.8)',
+            border: `1px solid ${listening ? '#30D158' : 'rgba(255,255,255,0.08)'}`,
+            borderRadius: '6px',
+            color: listening ? '#30D158' : '#ffffff',
+          fontSize: '12px',
+          cursor: 'pointer',
+          minWidth: '100px',
+          textAlign: 'center',
+          fontFamily: 'monospace',
+        }}
+      >
+        {listening ? 'Press keys...' : formatShortcut(shortcut)}
+      </div>
+        {!isDefault && (
+          <button
+            onClick={handleReset}
+            style={{
+              padding: '4px 10px',
+              backgroundColor: 'transparent',
+              border: '1px solid rgba(255,255,255,0.15)',
+              borderRadius: '4px',
+              color: 'rgba(255,255,255,0.6)',
+              fontSize: '11px',
+              cursor: 'pointer',
+            }}
+          >
+            Reset
+          </button>
+        )}
+      </div>
+    </div>
+  )
+}
+
 function SectionTitle({ children }: { children: React.ReactNode }) {
   return (
     <h3 style={{
@@ -192,6 +285,15 @@ export default function Settings() {
   const [settings, setSettings] = useState<Settings>(defaultSettings)
   const [activeTab, setActiveTab] = useState<TabId>('general')
   const [hoveredTab, setHoveredTab] = useState<TabId | null>(null)
+
+  useEffect(() => {
+    window.electronAPI.getGlobalShortcut().then((shortcut) => {
+      setSettings((prev) => ({
+        ...prev,
+        general: { ...prev.general, globalShortcut: shortcut }
+      }))
+    })
+  }, [])
 
   const update = <K extends keyof Settings>(section: K, key: keyof Settings[K], value: Settings[K][keyof Settings[K]]) => {
     setSettings((prev) => ({
@@ -215,23 +317,21 @@ export default function Settings() {
                 window.electronAPI.setLaunchAtLogin(v)
               }} />
             </SettingRow>
-            <SettingRow label="Show WPM in Menu Bar" isLast>
+            <SettingRow label="Show WPM in Menu Bar">
               <Toggle checked={settings.general.showMenuBarWpm} onChange={(v) => {
                 update('general', 'showMenuBarWpm', v)
                 window.electronAPI.setShowMenuBarWpm(v)
               }} />
             </SettingRow>
-            <SectionTitle>Display</SectionTitle>
-            <SettingRow label="Show Overlay">
-              <Toggle checked={settings.display.showOverlay} onChange={(v) => {
-                update('display', 'showOverlay', v)
-                window.electronAPI.setShowOverlay(v)
-              }} />
-            </SettingRow>
-            <SliderRow label="Opacity" value={settings.display.opacity} min={0.3} max={1} step={0.1} onChange={(v) => {
-              update('display', 'opacity', v)
-              window.electronAPI.setOpacity(v)
-            }} isLast={true} />
+            <ShortcutRow
+              label="Global Shortcut"
+              shortcut={settings.general.globalShortcut}
+              onChange={async (shortcut) => {
+                update('general', 'globalShortcut', shortcut)
+                await window.electronAPI.setGlobalShortcut(shortcut)
+              }}
+              isLast
+            />
           </div>
         )
 
@@ -286,30 +386,27 @@ export default function Settings() {
   }
 
   return (
-    <div style={{
+    <div className="frosted-glass" style={{
       height: '100vh',
-      background: 'rgba(15, 15, 15, 0.25)',
       fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", sans-serif',
       lineHeight: 1.4,
       display: 'flex',
       flexDirection: 'column',
-      border: '1px solid rgba(255,255,255,0.05)',
       color: 'rgba(255,255,255,0.9)',
     }}>
       {/* Titlebar wrapper */}
       <div style={{
         height: '60px',
-        background: 'rgba(15,15,15,0.4)',
+        background: 'rgba(30,30,30,0.9)',
         borderBottom: '1px solid rgba(255,255,255,0.05)',
         position: 'relative',
       }}>
         {/* Drag layer - lowest layer, covers full titlebar */}
-        <div style={{
+        <div className="titlebar-drag" style={{
           position: 'absolute',
           inset: 0,
           zIndex: 1,
-        } as React.CSSProperties}
-        {...({ WebkitAppRegion: 'drag' } as React.HTMLAttributes<HTMLDivElement>)} />
+        }} />
 
         {/* Tabs container - only wraps tabs, doesn't cover full width */}
         <div style={{
@@ -327,6 +424,7 @@ export default function Settings() {
               onClick={() => setActiveTab(tab.id)}
               onMouseEnter={() => setHoveredTab(tab.id)}
               onMouseLeave={() => setHoveredTab(null)}
+              className="no-drag"
               style={{
                 display: 'flex',
                 alignItems: 'center',
@@ -342,7 +440,6 @@ export default function Settings() {
                 transition: 'all 0.12s ease',
                 opacity: activeTab === tab.id ? 1 : hoveredTab === tab.id ? 0.85 : 0.6,
               }}
-              {...({ WebkitAppRegion: 'no-drag' } as React.HTMLAttributes<HTMLDivElement>)}
             >
               <span style={{ display: 'flex', alignItems: 'center' }}>{tab.icon}</span>
               <span>{tab.label}</span>

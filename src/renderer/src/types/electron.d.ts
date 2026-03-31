@@ -12,6 +12,8 @@ export interface ElectronAPI {
   setShowOverlay: (enabled: boolean) => void
   setOpacity: (opacity: number) => void
   setSmartColouring: (enabled: boolean) => void
+  setGlobalShortcut: (shortcut: string) => Promise<boolean>
+  getGlobalShortcut: () => Promise<string>
 }
 
 declare global {

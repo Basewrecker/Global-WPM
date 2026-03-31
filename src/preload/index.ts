@@ -14,6 +14,8 @@ export interface ElectronAPI {
   setShowOverlay: (enabled: boolean) => void
   setOpacity: (opacity: number) => void
   setSmartColouring: (enabled: boolean) => void
+  setGlobalShortcut: (shortcut: string) => Promise<boolean>
+  getGlobalShortcut: () => Promise<string>
 }
 
 contextBridge.exposeInMainWorld('electronAPI', {
@@ -36,5 +38,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
   },
   setSmartColouring: (enabled: boolean) => {
     ipcRenderer.send('set-smart-colouring', enabled)
+  },
+  setGlobalShortcut: (shortcut: string) => {
+    return ipcRenderer.invoke('set-global-shortcut', shortcut)
+  },
+  getGlobalShortcut: () => {
+    return ipcRenderer.invoke('get-global-shortcut')
   },
 })

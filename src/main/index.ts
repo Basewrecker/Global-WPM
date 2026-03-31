@@ -1,4 +1,4 @@
-import { app, BrowserWindow, screen, Tray, Menu, nativeImage, ipcMain } from 'electron'
+import { app, BrowserWindow, screen, Tray, Menu, nativeImage, ipcMain, globalShortcut } from 'electron'
 import { join } from 'path'
 import { initTracking, stopTracking, getWPM } from './keyboardTracker'
 import { getSettings, updateSettings } from './settings'
@@ -18,6 +18,7 @@ let saveTimeout: NodeJS.Timeout | null = null
 let fadeInterval: NodeJS.Timeout | null = null
 let lastMenuBarWpm = 0
 let menuBarAnimationTimeouts: NodeJS.Timeout[] = []
+let registeredShortcut: string | null = null
 
 const SETTINGS_WIDTH = 780
 const SETTINGS_HEIGHT = 560
@@ -316,6 +317,34 @@ function toggleWindow() {
   }
 }
 
+function unregisterShortcut() {
+  if (registeredShortcut) {
+    try {
+      globalShortcut.unregister(registeredShortcut)
+    } catch {}
+    registeredShortcut = null
+  }
+}
+
+function registerShortcut(shortcut: string): boolean {
+  try {
+    if (registeredShortcut) {
+      globalShortcut.unregister(registeredShortcut)
+    }
+    
+    const success = globalShortcut.register(shortcut, () => {
+      toggleWindow()
+    })
+    
+    if (success) {
+      registeredShortcut = shortcut
+    }
+    return success
+  } catch {
+    return false
+  }
+}
+
 function createSettingsWindow() {
   if (settingsWindow && !settingsWindow.isDestroyed()) {
     settingsWindow.focus()
@@ -335,8 +364,7 @@ function createSettingsWindow() {
     minimizable: false,
     maximizable: false,
     show: true,
-    transparent: true,
-    vibrancy: 'hud',
+    vibrancy: 'sidebar',
     visualEffectState: 'active',
     webPreferences: {
       preload,
@@ -416,6 +444,8 @@ app.whenReady().then(() => {
   const settings = getSettings()
   app.setLoginItemSettings({ openAtLogin: settings.general.launchAtLogin })
   
+  registerShortcut(settings.general.globalShortcut)
+  
   createWindow()
   
   if (mainWindow && !mainWindow.isDestroyed()) {
@@ -465,6 +495,18 @@ ipcMain.on('set-smart-colouring', (_, enabled: boolean) => {
   updateSettings({ appearance: { smartColouring: enabled } })
 })
 
+ipcMain.handle('set-global-shortcut', (_, shortcut: string) => {
+  const success = registerShortcut(shortcut)
+  if (success) {
+    updateSettings({ general: { globalShortcut: shortcut } })
+  }
+  return success
+})
+
+ipcMain.handle('get-global-shortcut', () => {
+  return getSettings().general.globalShortcut
+})
+
 app.on('window-all-closed', () => {
   stopTracking()
   stopWPMBroadcast()
@@ -475,6 +517,10 @@ app.on('window-all-closed', () => {
 
 app.on('activate', () => {
   showWindow()
+})
+
+app.on('will-quit', () => {
+  unregisterShortcut()
 })
 
 
