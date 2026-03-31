@@ -329,17 +329,21 @@ function createSettingsWindow() {
     height: SETTINGS_HEIGHT,
     x: Math.round((width - SETTINGS_WIDTH) / 2),
     y: Math.round((height - SETTINGS_HEIGHT) / 2),
-    frame: true,
+    frame: false,
+    titleBarStyle: 'hiddenInset',
     resizable: false,
     minimizable: false,
     maximizable: false,
     show: true,
+    transparent: true,
+    vibrancy: 'hud',
+    visualEffectState: 'active',
     webPreferences: {
       preload,
       nodeIntegration: false,
       contextIsolation: true,
     },
-    backgroundColor: '#121212',
+    backgroundColor: '#00000000',
   })
 
   const baseUrl = process.env.VITE_DEV_SERVER_URL || 'http://localhost:5173'

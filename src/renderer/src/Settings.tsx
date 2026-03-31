@@ -288,49 +288,67 @@ export default function Settings() {
   return (
     <div style={{
       height: '100vh',
-      background: 'rgba(15, 15, 15, 0.85)',
-      backdropFilter: 'blur(6px)',
-      WebkitBackdropFilter: 'blur(6px)',
+      background: 'rgba(15, 15, 15, 0.25)',
       fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", sans-serif',
       lineHeight: 1.4,
       display: 'flex',
       flexDirection: 'column',
+      border: '1px solid rgba(255,255,255,0.05)',
+      color: 'rgba(255,255,255,0.9)',
     }}>
-      {/* Header - keep crisp, no blur */}
+      {/* Titlebar wrapper */}
       <div style={{
-        display: 'flex',
-        justifyContent: 'center',
-        padding: '12px 28px 8px',
-        gap: '24px',
-        background: 'rgba(15,15,15,0.95)',
+        height: '60px',
+        background: 'rgba(15,15,15,0.4)',
         borderBottom: '1px solid rgba(255,255,255,0.05)',
+        position: 'relative',
       }}>
-        {tabs.map((tab) => (
-          <div
-            key={tab.id}
-            onClick={() => setActiveTab(tab.id)}
-            onMouseEnter={() => setHoveredTab(tab.id)}
-            onMouseLeave={() => setHoveredTab(null)}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px',
-              padding: '6px 12px',
-              borderRadius: '8px',
-              cursor: 'pointer',
-              backgroundColor: activeTab === tab.id ? 'rgba(255,255,255,0.08)' : 
-                              hoveredTab === tab.id ? 'rgba(255,255,255,0.04)' : 'transparent',
-              color: activeTab === tab.id ? '#ffffff' : 'rgba(255,255,255,0.6)',
-              fontSize: '13px',
-              fontWeight: activeTab === tab.id ? '500' : '400',
-              transition: 'all 0.12s ease',
-              opacity: activeTab === tab.id ? 1 : hoveredTab === tab.id ? 0.85 : 0.6,
-            }}
-          >
-            <span style={{ display: 'flex', alignItems: 'center' }}>{tab.icon}</span>
-            <span>{tab.label}</span>
-          </div>
-        ))}
+        {/* Drag layer - lowest layer, covers full titlebar */}
+        <div style={{
+          position: 'absolute',
+          inset: 0,
+          zIndex: 1,
+        } as React.CSSProperties}
+        {...({ WebkitAppRegion: 'drag' } as React.HTMLAttributes<HTMLDivElement>)} />
+
+        {/* Tabs container - only wraps tabs, doesn't cover full width */}
+        <div style={{
+          position: 'relative',
+          zIndex: 2,
+          height: '100%',
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          gap: '24px',
+        }}>
+          {tabs.map((tab) => (
+            <div
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              onMouseEnter={() => setHoveredTab(tab.id)}
+              onMouseLeave={() => setHoveredTab(null)}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                padding: '6px 12px',
+                borderRadius: '8px',
+                cursor: 'pointer',
+                backgroundColor: activeTab === tab.id ? 'rgba(255,255,255,0.08)' : 
+                                hoveredTab === tab.id ? 'rgba(255,255,255,0.04)' : 'transparent',
+                color: activeTab === tab.id ? '#ffffff' : 'rgba(255,255,255,0.6)',
+                fontSize: '13px',
+                fontWeight: activeTab === tab.id ? '500' : '400',
+                transition: 'all 0.12s ease',
+                opacity: activeTab === tab.id ? 1 : hoveredTab === tab.id ? 0.85 : 0.6,
+              }}
+              {...({ WebkitAppRegion: 'no-drag' } as React.HTMLAttributes<HTMLDivElement>)}
+            >
+              <span style={{ display: 'flex', alignItems: 'center' }}>{tab.icon}</span>
+              <span>{tab.label}</span>
+            </div>
+          ))}
+        </div>
       </div>
 
       {/* Content */}
