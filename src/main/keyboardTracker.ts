@@ -133,11 +133,6 @@ function calculateWPM(): WPMStats {
     const minKeystrokes = settings.behaviour?.minKeystrokes ?? 8
     const finalWpm = keystrokes.length >= minKeystrokes ? calculateWPMInternal(keystrokes) : 0
     
-    if (settings.advanced?.debugMode) {
-      console.log('Session ended')
-      console.log('Final WPM:', finalWpm)
-    }
-    
     if (keystrokes.length >= minKeystrokes) {
       stats.lifetime.totalWpm += finalWpm
       stats.lifetime.totalRawWpm += finalWpm
@@ -146,10 +141,6 @@ function calculateWPM(): WPMStats {
       stats.lifetime.highestWpm = Math.max(stats.lifetime.highestWpm, stats.session.highestWpm)
       stats.lifetime.highestRawWpm = Math.max(stats.lifetime.highestRawWpm, stats.session.highestRawWpm)
       stats.lifetime.highestAccuracy = Math.max(stats.lifetime.highestAccuracy, stats.session.highestAccuracy)
-      
-      if (settings.advanced?.debugMode) {
-        console.log('Updated Lifetime Stats:', stats.lifetime)
-      }
     }
     
     keystrokes = []
@@ -182,11 +173,6 @@ function calculateWPM(): WPMStats {
 
   if (wpm > stats.session.highestWpm) {
     stats.session.highestWpm = wpm
-  }
-
-  if (settings.advanced?.debugMode) {
-    console.log('WPM:', wpm)
-    console.log('Session High WPM:', stats.session.highestWpm)
   }
 
   return {

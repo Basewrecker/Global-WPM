@@ -3,9 +3,12 @@ import * as fs from 'fs'
 import * as path from 'path'
 
 export interface Settings {
+  general: {
+    launchAtLogin: boolean
+    showMenuBarWpm: boolean
+  }
   display: {
     showOverlay: boolean
-    showMenuBarWpm: boolean
     opacity: number
   }
   appearance: {
@@ -25,9 +28,12 @@ export interface Settings {
 }
 
 const defaultSettings: Settings = {
+  general: {
+    launchAtLogin: false,
+    showMenuBarWpm: false,
+  },
   display: {
     showOverlay: true,
-    showMenuBarWpm: false,
     opacity: 0.9,
   },
   appearance: {
@@ -106,13 +112,17 @@ function saveSettings(s: Settings): void {
 function validateSettings(s: Settings): Settings {
   const validated = structuredClone(defaultSettings)
 
+  validated.general.launchAtLogin = typeof s.general?.launchAtLogin === 'boolean'
+    ? s.general.launchAtLogin
+    : defaultSettings.general.launchAtLogin
+
+  validated.general.showMenuBarWpm = typeof s.general?.showMenuBarWpm === 'boolean'
+    ? s.general.showMenuBarWpm
+    : defaultSettings.general.showMenuBarWpm
+
   validated.display.showOverlay = typeof s.display?.showOverlay === 'boolean'
     ? s.display.showOverlay
     : defaultSettings.display.showOverlay
-
-  validated.display.showMenuBarWpm = typeof s.display?.showMenuBarWpm === 'boolean'
-    ? s.display.showMenuBarWpm
-    : defaultSettings.display.showMenuBarWpm
 
   const opacity = s.display?.opacity
   validated.display.opacity = typeof opacity === 'number'

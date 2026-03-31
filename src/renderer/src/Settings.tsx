@@ -2,9 +2,12 @@ import { useState } from 'react'
 import { Settings as SettingsIcon, Sun, Sliders, Activity, Wrench } from 'lucide-react'
 
 interface Settings {
+  general: {
+    launchAtLogin: boolean
+    showMenuBarWpm: boolean
+  }
   display: {
     showOverlay: boolean
-    showMenuBarWpm: boolean
     opacity: number
   }
   appearance: {
@@ -24,9 +27,12 @@ interface Settings {
 }
 
 const defaultSettings: Settings = {
+  general: {
+    launchAtLogin: false,
+    showMenuBarWpm: false,
+  },
   display: {
     showOverlay: true,
-    showMenuBarWpm: false,
     opacity: 0.9,
   },
   appearance: {
@@ -202,14 +208,30 @@ export default function Settings() {
       case 'general':
         return (
           <div>
+            <SectionTitle>General</SectionTitle>
+            <SettingRow label="Launch at Login">
+              <Toggle checked={settings.general.launchAtLogin} onChange={(v) => {
+                update('general', 'launchAtLogin', v)
+                window.electronAPI.setLaunchAtLogin(v)
+              }} />
+            </SettingRow>
+            <SettingRow label="Show WPM in Menu Bar" isLast>
+              <Toggle checked={settings.general.showMenuBarWpm} onChange={(v) => {
+                update('general', 'showMenuBarWpm', v)
+                window.electronAPI.setShowMenuBarWpm(v)
+              }} />
+            </SettingRow>
             <SectionTitle>Display</SectionTitle>
             <SettingRow label="Show Overlay">
-              <Toggle checked={settings.display.showOverlay} onChange={(v) => update('display', 'showOverlay', v)} />
+              <Toggle checked={settings.display.showOverlay} onChange={(v) => {
+                update('display', 'showOverlay', v)
+                window.electronAPI.setShowOverlay(v)
+              }} />
             </SettingRow>
-            <SettingRow label="Show WPM in Menu Bar">
-              <Toggle checked={settings.display.showMenuBarWpm} onChange={(v) => update('display', 'showMenuBarWpm', v)} />
-            </SettingRow>
-            <SliderRow label="Opacity" value={settings.display.opacity} min={0.3} max={1} step={0.1} onChange={(v) => update('display', 'opacity', v)} isLast />
+            <SliderRow label="Opacity" value={settings.display.opacity} min={0.3} max={1} step={0.1} onChange={(v) => {
+              update('display', 'opacity', v)
+              window.electronAPI.setOpacity(v)
+            }} isLast={true} />
           </div>
         )
 
@@ -218,7 +240,10 @@ export default function Settings() {
           <div>
             <SectionTitle>Colors</SectionTitle>
             <SettingRow label="Smart Colouring" isLast>
-              <Toggle checked={settings.appearance.smartColouring} onChange={(v) => update('appearance', 'smartColouring', v)} />
+              <Toggle checked={settings.appearance.smartColouring} onChange={(v) => {
+                update('appearance', 'smartColouring', v)
+                window.electronAPI.setSmartColouring(v)
+              }} />
             </SettingRow>
           </div>
         )
@@ -263,21 +288,22 @@ export default function Settings() {
   return (
     <div style={{
       height: '100vh',
-      background: 'rgba(18, 18, 20, 0.94)',
-      backdropFilter: 'blur(2px)',
-      WebkitBackdropFilter: 'blur(2px)',
+      background: 'rgba(15, 15, 15, 0.85)',
+      backdropFilter: 'blur(6px)',
+      WebkitBackdropFilter: 'blur(6px)',
       fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", sans-serif',
       lineHeight: 1.4,
       display: 'flex',
       flexDirection: 'column',
     }}>
-      {/* Tabs */}
+      {/* Header - keep crisp, no blur */}
       <div style={{
         display: 'flex',
         justifyContent: 'center',
         padding: '12px 28px 8px',
         gap: '24px',
-        borderBottom: '1px solid rgba(255,255,255,0.06)',
+        background: 'rgba(15,15,15,0.95)',
+        borderBottom: '1px solid rgba(255,255,255,0.05)',
       }}>
         {tabs.map((tab) => (
           <div

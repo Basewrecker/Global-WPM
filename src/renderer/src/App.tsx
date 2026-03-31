@@ -4,14 +4,15 @@ interface WPMStats {
   wpm: number
   charCount: number
   timeWindowMs: number
+  smartColouring: boolean
 }
 
 function getWpmColor(wpm: number): string {
-  if (wpm === 0) return '#9ca3af'
-  if (wpm < 60) return '#ef4444'
-  if (wpm < 90) return '#9ca3af'
-  if (wpm < 120) return '#22c55e'
-  return '#a855f7'
+  if (wpm === 0) return '#9CA3AF'
+  if (wpm <= 60) return '#EF4444'
+  if (wpm <= 90) return '#EAB308'
+  if (wpm <= 120) return '#22C55E'
+  return '#3B82F6'
 }
 
 function App() {
@@ -23,7 +24,11 @@ function App() {
   useEffect(() => {
     const unsubscribe = window.electronAPI.subscribeToWPM((stats: WPMStats) => {
       setWpm(stats.wpm)
-      setWpmColor(getWpmColor(stats.wpm))
+      if (stats.smartColouring) {
+        setWpmColor(getWpmColor(stats.wpm))
+      } else {
+        setWpmColor('#9CA3AF')
+      }
       if (stats.wpm > 0) {
         setIsDecaying(false)
         setDisplayWpm(stats.wpm)
@@ -68,8 +73,8 @@ function App() {
         gap: '8px',
         userSelect: 'none',
         WebkitUserSelect: 'none',
-        WebkitAppRegion: 'drag',
       }}
+      {...({ WebkitAppRegion: 'drag' } as React.HTMLAttributes<HTMLDivElement>)}
     >
       <span
         className="leading-none"
