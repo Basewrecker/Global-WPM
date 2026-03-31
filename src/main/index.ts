@@ -11,8 +11,13 @@ process.env.VITE_PUBLIC = process.env.VITE_DEV_SERVER_URL
 
 let mainWindow: BrowserWindow | null = null
 let tray: Tray | null = null
+let settingsWindow: BrowserWindow | null = null
 let wpmUpdateInterval: NodeJS.Timeout | null = null
 let saveTimeout: NodeJS.Timeout | null = null
+let fadeInterval: NodeJS.Timeout | null = null
+
+const SETTINGS_WIDTH = 780
+const SETTINGS_HEIGHT = 560
 
 const WINDOW_WIDTH = 145
 const WINDOW_HEIGHT = 100
@@ -60,7 +65,7 @@ function startWPMBroadcast() {
   if (wpmUpdateInterval) return
   
   wpmUpdateInterval = setInterval(() => {
-    if (mainWindow && !mainWindow.isDestroyed() && mainWindow.isVisible()) {
+    if (mainWindow && !mainWindow.isDestroyed() && mainWindow.isVisible() && !mainWindow.webContents.isDestroyed()) {
       const stats = getWPM()
       mainWindow.webContents.send('wpm:update', stats)
     }
@@ -112,6 +117,18 @@ function createWindow() {
     hideWindowAnimated()
   })
 
+  mainWindow.on('closed', () => {
+    stopWPMBroadcast()
+    if (fadeInterval) {
+      clearInterval(fadeInterval)
+      fadeInterval = null
+    }
+    if (saveTimeout) {
+      clearTimeout(saveTimeout)
+      saveTimeout = null
+    }
+  })
+
   if (process.env.VITE_DEV_SERVER_URL) {
     mainWindow.loadURL(process.env.VITE_DEV_SERVER_URL)
   } else {
@@ -128,17 +145,29 @@ function createWindow() {
 function showWindowAnimated() {
   if (!mainWindow || mainWindow.isDestroyed()) return
 
+  if (fadeInterval) {
+    clearInterval(fadeInterval)
+    fadeInterval = null
+  }
+
   mainWindow.setOpacity(0)
   mainWindow.show()
 
   let opacity = 0
-  const interval = setInterval(() => {
+  fadeInterval = setInterval(() => {
     opacity += 0.1
-    mainWindow?.setOpacity(opacity)
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.setOpacity(opacity)
+    }
 
     if (opacity >= 1) {
-      clearInterval(interval)
-      mainWindow?.setOpacity(1)
+      if (fadeInterval) {
+        clearInterval(fadeInterval)
+        fadeInterval = null
+      }
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.setOpacity(1)
+      }
     }
   }, 15)
 }
@@ -146,15 +175,27 @@ function showWindowAnimated() {
 function hideWindowAnimated() {
   if (!mainWindow || mainWindow.isDestroyed()) return
 
+  if (fadeInterval) {
+    clearInterval(fadeInterval)
+    fadeInterval = null
+  }
+
   let opacity = 1
-  const interval = setInterval(() => {
+  fadeInterval = setInterval(() => {
     opacity -= 0.1
-    mainWindow?.setOpacity(opacity)
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.setOpacity(opacity)
+    }
 
     if (opacity <= 0) {
-      clearInterval(interval)
-      mainWindow?.hide()
-      mainWindow?.setOpacity(1)
+      if (fadeInterval) {
+        clearInterval(fadeInterval)
+        fadeInterval = null
+      }
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.hide()
+        mainWindow.setOpacity(1)
+      }
     }
   }, 15)
 }
@@ -180,6 +221,52 @@ function toggleWindow() {
   } else {
     showWindow()
   }
+}
+
+function createSettingsWindow() {
+  console.log('createSettingsWindow called')
+  
+  if (settingsWindow && !settingsWindow.isDestroyed()) {
+    console.log('Settings window already exists, focusing')
+    settingsWindow.focus()
+    return
+  }
+
+  const { width, height } = screen.getPrimaryDisplay().workAreaSize
+
+  settingsWindow = new BrowserWindow({
+    width: SETTINGS_WIDTH,
+    height: SETTINGS_HEIGHT,
+    x: Math.round((width - SETTINGS_WIDTH) / 2),
+    y: Math.round((height - SETTINGS_HEIGHT) / 2),
+    frame: true,
+    resizable: false,
+    minimizable: false,
+    maximizable: false,
+    show: true,
+    transparent: true,
+    backgroundColor: '#00000000',
+    webPreferences: {
+      preload,
+      nodeIntegration: false,
+      contextIsolation: true,
+    },
+  })
+
+  const baseUrl = process.env.VITE_DEV_SERVER_URL || 'http://localhost:5173'
+  const settingsUrl = baseUrl.endsWith('/') ? `${baseUrl}#/settings` : `${baseUrl}/#/settings`
+  
+  console.log('Loading settings URL:', settingsUrl)
+  settingsWindow.loadURL(settingsUrl)
+
+  settingsWindow.webContents.on('did-finish-load', () => {
+    console.log('Settings window loaded')
+  })
+
+  settingsWindow.on('closed', () => {
+    console.log('Settings window closed')
+    settingsWindow = null
+  })
 }
 
 function createTray() {
@@ -229,7 +316,8 @@ function createTray() {
       {
         label: 'Settings',
         click: () => {
-          console.log('Settings clicked')
+          console.log('Settings menu clicked')
+          createSettingsWindow()
         }
       },
       { type: 'separator' },

@@ -1,4 +1,5 @@
 import { uIOhook } from 'uiohook-napi'
+import { getSettings, updateSettings, Settings } from './settings'
 
 export interface Keystroke {
   key: string
@@ -17,9 +18,26 @@ let lastKeypressTime: number = 0
 let isHookRunning = false
 
 const ROLLING_WINDOW_MS = 10000
-const INACTIVITY_THRESHOLD = 3500
-const MIN_CHARS = 8
 const MIN_TIME_SEC = 1.5
+
+const stats = {
+  lifetime: {
+    highestWpm: 0,
+    highestRawWpm: 0,
+    highestAccuracy: 0,
+    totalWpm: 0,
+    totalRawWpm: 0,
+    totalAccuracy: 0,
+    totalSessions: 0,
+  },
+  session: {
+    highestWpm: 0,
+    highestRawWpm: 0,
+    highestAccuracy: 0,
+    keystrokes: 0,
+    startTime: Date.now(),
+  },
+}
 
 function isTypingKey(key: string): boolean {
   if (!key) return false
@@ -61,6 +79,8 @@ function handleKeyDown(event: { keycode: number; key?: string }) {
   
   if (!isTypingKey(key)) return
   
+  stats.session.keystrokes++
+  
   const now = Date.now()
   lastKeypressTime = now
   
@@ -78,15 +98,60 @@ function handleError(error: Error) {
   console.error('[TRACKER] Error:', error.message)
 }
 
+function calculateWPMInternal(strokes: Keystroke[]): number {
+  if (strokes.length === 0) return 0
+  
+  const oldest = Math.min(...strokes.map(k => k.timestamp))
+  const newest = Math.max(...strokes.map(k => k.timestamp))
+  const actualWindowMs = newest - oldest
+  const actualSeconds = actualWindowMs / 1000
+  
+  const settings = getSettings()
+  const minChars = settings.behaviour?.minKeystrokes ?? 8
+  
+  if (strokes.length < minChars || actualSeconds < MIN_TIME_SEC) {
+    return 0
+  }
+  
+  const minutes = actualSeconds / 60
+  const words = strokes.length / 5
+  return Math.round(words / minutes)
+}
+
 function calculateWPM(): WPMStats {
   const now = Date.now()
+  const settings = getSettings()
   
   if (keystrokes.length === 0) {
     sessionStartTime = 0
     return { wpm: 0, charCount: 0, timeWindowMs: 0 }
   }
   
-  if (now - lastKeypressTime > INACTIVITY_THRESHOLD) {
+  const inactivityTimeout = settings.behaviour?.inactivityTimeout ?? 5000
+  
+  if (now - lastKeypressTime > inactivityTimeout) {
+    const minKeystrokes = settings.behaviour?.minKeystrokes ?? 8
+    const finalWpm = keystrokes.length >= minKeystrokes ? calculateWPMInternal(keystrokes) : 0
+    
+    if (settings.advanced?.debugMode) {
+      console.log('Session ended')
+      console.log('Final WPM:', finalWpm)
+    }
+    
+    if (keystrokes.length >= minKeystrokes) {
+      stats.lifetime.totalWpm += finalWpm
+      stats.lifetime.totalRawWpm += finalWpm
+      stats.lifetime.totalSessions += 1
+      
+      stats.lifetime.highestWpm = Math.max(stats.lifetime.highestWpm, stats.session.highestWpm)
+      stats.lifetime.highestRawWpm = Math.max(stats.lifetime.highestRawWpm, stats.session.highestRawWpm)
+      stats.lifetime.highestAccuracy = Math.max(stats.lifetime.highestAccuracy, stats.session.highestAccuracy)
+      
+      if (settings.advanced?.debugMode) {
+        console.log('Updated Lifetime Stats:', stats.lifetime)
+      }
+    }
+    
     keystrokes = []
     sessionStartTime = 0
     return { wpm: 0, charCount: 0, timeWindowMs: 0 }
@@ -105,13 +170,24 @@ function calculateWPM(): WPMStats {
   const actualWindowMs = newest - oldest
   const actualSeconds = actualWindowMs / 1000
   
-  if (recentKeystrokes.length < MIN_CHARS || actualSeconds < MIN_TIME_SEC) {
+  const minChars = settings.behaviour?.minKeystrokes ?? 8
+  
+  if (recentKeystrokes.length < minChars || actualSeconds < MIN_TIME_SEC) {
     return { wpm: 0, charCount: recentKeystrokes.length, timeWindowMs: actualWindowMs }
   }
   
   const minutes = actualSeconds / 60
   const words = recentKeystrokes.length / 5
   const wpm = Math.round(words / minutes)
+
+  if (wpm > stats.session.highestWpm) {
+    stats.session.highestWpm = wpm
+  }
+
+  if (settings.advanced?.debugMode) {
+    console.log('WPM:', wpm)
+    console.log('Session High WPM:', stats.session.highestWpm)
+  }
 
   return {
     wpm: Math.max(0, wpm),
@@ -175,3 +251,6 @@ export function getWPM(): WPMStats {
 export function initTracking(): void {
   startTracking()
 }
+
+export { getSettings, updateSettings }
+export type { Settings }
