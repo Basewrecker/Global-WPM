@@ -126,7 +126,8 @@ function startWPMBroadcast() {
       const stats = getWPM()
       safeSend(mainWindow, 'wpm:update', {
         ...stats,
-        smartColouring: settings.appearance.smartColouring
+        smartColouring: settings.appearance.smartColouring,
+        wpmTextSize: settings.appearance.wpmTextSize
       })
       
       if (tray) {
@@ -399,10 +400,12 @@ function createTray() {
 
   function getContextMenu() {
     const isVisible = mainWindow && mainWindow.isVisible()
+    const shortcut = getSettings().general.globalShortcut
 
     return Menu.buildFromTemplate([
       {
         label: isVisible ? 'Hide' : 'Show',
+        accelerator: shortcut,
         click: () => {
           if (!mainWindow) return
 
@@ -450,6 +453,7 @@ app.whenReady().then(() => {
   
   if (mainWindow && !mainWindow.isDestroyed()) {
     mainWindow.setOpacity(settings.display.opacity)
+    mainWindow.setVisibleOnAllWorkspaces(!settings.general.lockOverlayToDesktop, { visibleOnFullScreen: !settings.general.lockOverlayToDesktop })
     if (!settings.display.showOverlay) {
       mainWindow.hide()
     }
@@ -499,12 +503,53 @@ ipcMain.handle('set-global-shortcut', (_, shortcut: string) => {
   const success = registerShortcut(shortcut)
   if (success) {
     updateSettings({ general: { globalShortcut: shortcut } })
+    if (tray) {
+      tray.setContextMenu(getContextMenu())
+    }
   }
   return success
 })
 
 ipcMain.handle('get-global-shortcut', () => {
   return getSettings().general.globalShortcut
+})
+
+ipcMain.on('set-lock-overlay-to-desktop', (_, enabled: boolean) => {
+  updateSettings({ general: { lockOverlayToDesktop: enabled } })
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.setVisibleOnAllWorkspaces(!enabled, { visibleOnFullScreen: !enabled })
+  }
+})
+
+ipcMain.on('set-wpm-text-size', (_, size: 'medium' | 'large') => {
+  updateSettings({ appearance: { wpmTextSize: size } })
+})
+
+ipcMain.on('reset-all-settings', () => {
+  const defaults = {
+    general: {
+      launchAtLogin: false,
+      showMenuBarWpm: false,
+      globalShortcut: 'Alt+Shift+W',
+      lockOverlayToDesktop: false,
+    },
+    appearance: {
+      smartColouring: true,
+      wpmTextSize: 'medium' as const,
+    },
+  }
+  updateSettings(defaults)
+  
+  unregisterShortcut()
+  registerShortcut('Alt+Shift+W')
+  
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true })
+  }
+  
+  if (tray) {
+    tray.setContextMenu(getContextMenu())
+  }
 })
 
 app.on('window-all-closed', () => {

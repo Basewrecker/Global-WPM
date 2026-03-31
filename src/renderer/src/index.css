@@ -43,6 +43,26 @@ body {
   -webkit-app-region: no-drag;
 }
 
+/* Shortcut reset animation */
+.shortcut-reset {
+  animation: resetPulse 0.35s ease;
+}
+
+@keyframes resetPulse {
+  0% {
+    transform: scale(1);
+    box-shadow: 0 0 0 rgba(0, 0, 0, 0);
+  }
+  50% {
+    transform: scale(1.05);
+    box-shadow: 0 0 12px rgba(255, 255, 255, 0.08);
+  }
+  100% {
+    transform: scale(1);
+    box-shadow: 0 0 0 rgba(0, 0, 0, 0);
+  }
+}
+
 /* Frosted glass container */
 .frosted-glass {
   position: relative;

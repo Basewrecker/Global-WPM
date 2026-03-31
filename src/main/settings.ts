@@ -7,6 +7,7 @@ export interface Settings {
     launchAtLogin: boolean
     showMenuBarWpm: boolean
     globalShortcut: string
+    lockOverlayToDesktop: boolean
   }
   display: {
     showOverlay: boolean
@@ -14,6 +15,7 @@ export interface Settings {
   }
   appearance: {
     smartColouring: boolean
+    wpmTextSize: 'medium' | 'large'
   }
   behaviour: {
     inactivityTimeout: number
@@ -33,6 +35,7 @@ const defaultSettings: Settings = {
     launchAtLogin: false,
     showMenuBarWpm: false,
     globalShortcut: 'Alt+Shift+W',
+    lockOverlayToDesktop: false,
   },
   display: {
     showOverlay: true,
@@ -40,6 +43,7 @@ const defaultSettings: Settings = {
   },
   appearance: {
     smartColouring: true,
+    wpmTextSize: 'medium',
   },
   behaviour: {
     inactivityTimeout: 3500,
@@ -126,6 +130,10 @@ function validateSettings(s: Settings): Settings {
     ? s.general.globalShortcut
     : defaultSettings.general.globalShortcut
 
+  validated.general.lockOverlayToDesktop = typeof s.general?.lockOverlayToDesktop === 'boolean'
+    ? s.general.lockOverlayToDesktop
+    : defaultSettings.general.lockOverlayToDesktop
+
   validated.display.showOverlay = typeof s.display?.showOverlay === 'boolean'
     ? s.display.showOverlay
     : defaultSettings.display.showOverlay
@@ -138,6 +146,11 @@ function validateSettings(s: Settings): Settings {
   validated.appearance.smartColouring = typeof s.appearance?.smartColouring === 'boolean'
     ? s.appearance.smartColouring
     : defaultSettings.appearance.smartColouring
+
+  const wpmTextSize = s.appearance?.wpmTextSize
+  validated.appearance.wpmTextSize = (wpmTextSize === 'medium' || wpmTextSize === 'large')
+    ? wpmTextSize
+    : defaultSettings.appearance.wpmTextSize
 
   const timeout = s.behaviour?.inactivityTimeout
   validated.behaviour.inactivityTimeout = typeof timeout === 'number'

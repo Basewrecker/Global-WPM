@@ -5,6 +5,7 @@ export interface WPMStats {
   charCount: number
   timeWindowMs: number
   smartColouring: boolean
+  wpmTextSize: 'medium' | 'large'
 }
 
 export interface ElectronAPI {
@@ -16,6 +17,9 @@ export interface ElectronAPI {
   setSmartColouring: (enabled: boolean) => void
   setGlobalShortcut: (shortcut: string) => Promise<boolean>
   getGlobalShortcut: () => Promise<string>
+  setLockOverlayToDesktop: (enabled: boolean) => void
+  setWpmTextSize: (size: 'medium' | 'large') => void
+  resetAllSettings: () => void
 }
 
 contextBridge.exposeInMainWorld('electronAPI', {
@@ -44,5 +48,14 @@ contextBridge.exposeInMainWorld('electronAPI', {
   },
   getGlobalShortcut: () => {
     return ipcRenderer.invoke('get-global-shortcut')
+  },
+  setLockOverlayToDesktop: (enabled: boolean) => {
+    ipcRenderer.send('set-lock-overlay-to-desktop', enabled)
+  },
+  setWpmTextSize: (size: 'medium' | 'large') => {
+    ipcRenderer.send('set-wpm-text-size', size)
+  },
+  resetAllSettings: () => {
+    ipcRenderer.send('reset-all-settings')
   },
 })

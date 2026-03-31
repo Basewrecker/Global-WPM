@@ -3,6 +3,7 @@ export interface WPMStats {
   charCount: number
   timeWindowMs: number
   smartColouring: boolean
+  wpmTextSize: 'medium' | 'large'
 }
 
 export interface ElectronAPI {
@@ -14,6 +15,9 @@ export interface ElectronAPI {
   setSmartColouring: (enabled: boolean) => void
   setGlobalShortcut: (shortcut: string) => Promise<boolean>
   getGlobalShortcut: () => Promise<string>
+  setLockOverlayToDesktop: (enabled: boolean) => void
+  setWpmTextSize: (size: 'medium' | 'large') => void
+  resetAllSettings: () => void
 }
 
 declare global {

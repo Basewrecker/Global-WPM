@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Settings as SettingsIcon, Sun, Sliders, Activity, Wrench } from 'lucide-react'
 
 const DEFAULT_SHORTCUT = 'Alt+Shift+W'
@@ -8,6 +8,7 @@ interface Settings {
     launchAtLogin: boolean
     showMenuBarWpm: boolean
     globalShortcut: string
+    lockOverlayToDesktop: boolean
   }
   display: {
     showOverlay: boolean
@@ -15,6 +16,7 @@ interface Settings {
   }
   appearance: {
     smartColouring: boolean
+    wpmTextSize: 'medium' | 'large'
   }
   behaviour: {
     inactivityTimeout: number
@@ -34,6 +36,7 @@ const defaultSettings: Settings = {
     launchAtLogin: false,
     showMenuBarWpm: false,
     globalShortcut: DEFAULT_SHORTCUT,
+    lockOverlayToDesktop: false,
   },
   display: {
     showOverlay: true,
@@ -41,6 +44,7 @@ const defaultSettings: Settings = {
   },
   appearance: {
     smartColouring: true,
+    wpmTextSize: 'medium',
   },
   behaviour: {
     inactivityTimeout: 5000,
@@ -105,14 +109,13 @@ function Toggle({ checked, onChange }: { checked: boolean; onChange: (v: boolean
   )
 }
 
-function SettingRow({ label, children, isLast }: { label: string; children: React.ReactNode; isLast?: boolean }) {
+function SettingRow({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div style={{
       display: 'flex',
       justifyContent: 'space-between',
       alignItems: 'center',
       padding: '12px 0',
-      borderBottom: isLast ? 'none' : '1px solid rgba(255,255,255,0.04)',
     }}>
       <span style={{ fontSize: '13px', color: '#e5e5e7' }}>{label}</span>
       {children}
@@ -120,11 +123,11 @@ function SettingRow({ label, children, isLast }: { label: string; children: Reac
   )
 }
 
-function NumberRow({ label, value, min, max, onChange, isLast }: {
-  label: string; value: number; min: number; max: number; onChange: (v: number) => void; isLast?: boolean
+function NumberRow({ label, value, min, max, onChange }: {
+  label: string; value: number; min: number; max: number; onChange: (v: number) => void
 }) {
   return (
-    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 0', borderBottom: isLast ? 'none' : '1px solid rgba(255,255,255,0.04)' }}>
+    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 0' }}>
       <span style={{ fontSize: '13px', color: '#e5e5e7' }}>{label}</span>
       <input
         type="number"
@@ -157,10 +160,11 @@ function formatShortcut(shortcut: string): string {
     .replace(/\+/g, ' + ')
 }
 
-function ShortcutRow({ label, shortcut, onChange, isLast }: {
-  label: string; shortcut: string; onChange: (s: string) => void; isLast?: boolean
+function ShortcutRow({ label, shortcut, onChange }: {
+  label: string; shortcut: string; onChange: (s: string) => void
 }) {
   const [listening, setListening] = useState(false)
+  const shortcutRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     if (!listening) {
@@ -214,6 +218,15 @@ function ShortcutRow({ label, shortcut, onChange, isLast }: {
 
   const handleReset = () => {
     onChange(DEFAULT_SHORTCUT)
+    
+    if (shortcutRef.current) {
+      shortcutRef.current.classList.remove('shortcut-reset')
+      void shortcutRef.current.offsetWidth
+      shortcutRef.current.classList.add('shortcut-reset')
+      setTimeout(() => {
+        shortcutRef.current?.classList.remove('shortcut-reset')
+      }, 350)
+    }
   }
 
   const isDefault = shortcut === DEFAULT_SHORTCUT
@@ -224,11 +237,11 @@ function ShortcutRow({ label, shortcut, onChange, isLast }: {
       justifyContent: 'space-between',
       alignItems: 'center',
       padding: '12px 0',
-      borderBottom: isLast ? 'none' : '1px solid rgba(255,255,255,0.04)',
     }}>
       <span style={{ fontSize: '13px', color: '#e5e5e7' }}>{label}</span>
       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
         <div
+          ref={shortcutRef}
           onClick={() => setListening(true)}
           onBlur={() => setListening(false)}
           style={{
@@ -281,6 +294,75 @@ function SectionTitle({ children }: { children: React.ReactNode }) {
   )
 }
 
+function SegmentedControl<T extends string>({ 
+  value, 
+  options, 
+  onChange 
+}: { 
+  value: T
+  options: { label: string; value: T }[]
+  onChange: (value: T) => void
+}) {
+  return (
+    <div style={{
+      display: 'flex',
+      backgroundColor: 'rgba(44, 44, 46, 0.8)',
+      borderRadius: '6px',
+      padding: '2px',
+      gap: '2px',
+    }}>
+      {options.map((option) => (
+        <div
+          key={option.value}
+          onClick={() => onChange(option.value)}
+          style={{
+            padding: '4px 12px',
+            borderRadius: '4px',
+            cursor: 'pointer',
+            backgroundColor: value === option.value ? 'rgba(255,255,255,0.12)' : 'transparent',
+            color: value === option.value ? '#ffffff' : 'rgba(255,255,255,0.6)',
+            fontSize: '12px',
+            fontWeight: value === option.value ? '500' : '400',
+            transition: 'all 0.15s ease',
+          }}
+        >
+          {option.label}
+        </div>
+      ))}
+    </div>
+  )
+}
+
+function ResetButton({ onClick }: { onClick: () => void }) {
+  return (
+    <button
+      onClick={onClick}
+      style={{
+        width: '100%',
+        padding: '10px',
+        marginTop: '24px',
+        backgroundColor: 'transparent',
+        border: '1px solid rgba(255,255,255,0.08)',
+        borderRadius: '6px',
+        color: 'rgba(255,255,255,0.6)',
+        fontSize: '13px',
+        cursor: 'pointer',
+        transition: 'all 0.15s ease',
+      }}
+      onMouseEnter={(e) => {
+        e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.04)'
+        e.currentTarget.style.borderColor = 'rgba(255,255,255,0.15)'
+      }}
+      onMouseLeave={(e) => {
+        e.currentTarget.style.backgroundColor = 'transparent'
+        e.currentTarget.style.borderColor = 'rgba(255,255,255,0.08)'
+      }}
+    >
+      Reset All Settings
+    </button>
+  )
+}
+
 export default function Settings() {
   const [settings, setSettings] = useState<Settings>(defaultSettings)
   const [activeTab, setActiveTab] = useState<TabId>('general')
@@ -330,8 +412,42 @@ export default function Settings() {
                 update('general', 'globalShortcut', shortcut)
                 await window.electronAPI.setGlobalShortcut(shortcut)
               }}
-              isLast
             />
+            <SettingRow label="Lock Overlay to Desktop">
+              <Toggle checked={settings.general.lockOverlayToDesktop} onChange={(v) => {
+                update('general', 'lockOverlayToDesktop', v)
+                window.electronAPI.setLockOverlayToDesktop(v)
+              }} />
+            </SettingRow>
+            <SettingRow label="WPM Text Size">
+              <SegmentedControl
+                value={settings.appearance.wpmTextSize}
+                options={[
+                  { label: 'Medium', value: 'medium' },
+                  { label: 'Large', value: 'large' },
+                ]}
+                onChange={(size) => {
+                  update('appearance', 'wpmTextSize', size)
+                  window.electronAPI.setWpmTextSize(size)
+                }}
+              />
+            </SettingRow>
+            <ResetButton onClick={() => {
+              if (window.confirm('Are you sure you want to reset all settings?')) {
+                window.electronAPI.resetAllSettings()
+                setSettings({
+                  ...defaultSettings,
+                  general: {
+                    ...defaultSettings.general,
+                    globalShortcut: DEFAULT_SHORTCUT,
+                  },
+                  appearance: {
+                    ...defaultSettings.appearance,
+                    wpmTextSize: 'medium',
+                  },
+                })
+              }
+            }} />
           </div>
         )
 
@@ -339,7 +455,7 @@ export default function Settings() {
         return (
           <div>
             <SectionTitle>Colors</SectionTitle>
-            <SettingRow label="Smart Colouring" isLast>
+            <SettingRow label="Smart Colouring">
               <Toggle checked={settings.appearance.smartColouring} onChange={(v) => {
                 update('appearance', 'smartColouring', v)
                 window.electronAPI.setSmartColouring(v)
@@ -353,7 +469,7 @@ export default function Settings() {
           <div>
             <SectionTitle>Typing Detection</SectionTitle>
             <NumberRow label="Inactivity Timeout (ms)" value={settings.behaviour.inactivityTimeout} min={2000} max={10000} onChange={(v) => update('behaviour', 'inactivityTimeout', v)} />
-            <NumberRow label="Minimum Keystrokes" value={settings.behaviour.minKeystrokes} min={1} max={50} onChange={(v) => update('behaviour', 'minKeystrokes', v)} isLast />
+            <NumberRow label="Minimum Keystrokes" value={settings.behaviour.minKeystrokes} min={1} max={50} onChange={(v) => update('behaviour', 'minKeystrokes', v)} />
           </div>
         )
 
@@ -364,7 +480,7 @@ export default function Settings() {
             <SettingRow label="Track Accuracy">
               <Toggle checked={settings.tracking.trackAccuracy} onChange={(v) => update('tracking', 'trackAccuracy', v)} />
             </SettingRow>
-            <SettingRow label="Track Raw WPM" isLast>
+            <SettingRow label="Track Raw WPM">
               <Toggle checked={settings.tracking.trackRawWpm} onChange={(v) => update('tracking', 'trackRawWpm', v)} />
             </SettingRow>
           </div>
@@ -374,7 +490,7 @@ export default function Settings() {
         return (
           <div>
             <SectionTitle>Developer</SectionTitle>
-            <SettingRow label="Debug Mode" isLast>
+            <SettingRow label="Debug Mode">
               <Toggle checked={settings.advanced.debugMode} onChange={(v) => update('advanced', 'debugMode', v)} />
             </SettingRow>
           </div>
