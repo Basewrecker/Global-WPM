@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { Settings as SettingsIcon, Sun, Sliders, Activity, Wrench } from 'lucide-react'
 
 interface Settings {
   display: {
@@ -49,33 +50,16 @@ type TabId = 'general' | 'appearance' | 'behaviour' | 'tracking' | 'advanced'
 interface Tab {
   id: TabId
   label: string
+  icon: React.ReactNode
 }
 
 const tabs: Tab[] = [
-  { id: 'general', label: 'General' },
-  { id: 'appearance', label: 'Appearance' },
-  { id: 'behaviour', label: 'Behaviour' },
-  { id: 'tracking', label: 'Tracking' },
-  { id: 'advanced', label: 'Advanced' },
+  { id: 'general', label: 'General', icon: <SettingsIcon size={16} /> },
+  { id: 'appearance', label: 'Appearance', icon: <Sun size={16} /> },
+  { id: 'behaviour', label: 'Behaviour', icon: <Sliders size={16} /> },
+  { id: 'tracking', label: 'Tracking', icon: <Activity size={16} /> },
+  { id: 'advanced', label: 'Advanced', icon: <Wrench size={16} /> },
 ]
-
-function TrafficLights() {
-  return (
-    <div style={{
-      position: 'absolute',
-      left: '12px',
-      top: '50%',
-      transform: 'translateY(-50%)',
-      display: 'flex',
-      gap: '8px',
-      alignItems: 'center',
-    }}>
-      <div style={{ width: '12px', height: '12px', borderRadius: '50%', backgroundColor: '#ff5f57', opacity: 0.9 }} />
-      <div style={{ width: '12px', height: '12px', borderRadius: '50%', backgroundColor: '#febc2e', opacity: 0.9 }} />
-      <div style={{ width: '12px', height: '12px', borderRadius: '50%', backgroundColor: '#28c840', opacity: 0.9 }} />
-    </div>
-  )
-}
 
 function Toggle({ checked, onChange }: { checked: boolean; onChange: (v: boolean) => void }) {
   return (
@@ -279,34 +263,21 @@ export default function Settings() {
   return (
     <div style={{
       height: '100vh',
-      background: 'rgba(20, 20, 22, 0.92)',
-      backdropFilter: 'blur(3px)',
-      WebkitBackdropFilter: 'blur(3px)',
+      background: 'rgba(18, 18, 20, 0.94)',
+      backdropFilter: 'blur(2px)',
+      WebkitBackdropFilter: 'blur(2px)',
       fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", sans-serif',
       lineHeight: 1.4,
       display: 'flex',
       flexDirection: 'column',
     }}>
-      {/* Header */}
-      <div style={{
-        height: '32px',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        borderBottom: '1px solid rgba(255,255,255,0.05)',
-        WebkitAppRegion: 'drag',
-        position: 'relative',
-      }}>
-        <TrafficLights />
-        <span style={{ fontSize: '12px', fontWeight: '500', color: 'rgba(255,255,255,0.75)', letterSpacing: '0.2px' }}>WPM Settings</span>
-      </div>
-
       {/* Tabs */}
       <div style={{
         display: 'flex',
         justifyContent: 'center',
-        padding: '10px 28px 6px',
-        gap: '4px',
+        padding: '12px 28px 8px',
+        gap: '24px',
+        borderBottom: '1px solid rgba(255,255,255,0.06)',
       }}>
         {tabs.map((tab) => (
           <div
@@ -315,18 +286,23 @@ export default function Settings() {
             onMouseEnter={() => setHoveredTab(tab.id)}
             onMouseLeave={() => setHoveredTab(null)}
             style={{
-              padding: '6px 14px',
-              borderRadius: '6px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              padding: '6px 12px',
+              borderRadius: '8px',
               cursor: 'pointer',
-              backgroundColor: activeTab === tab.id ? 'rgba(255,255,255,0.1)' : 
+              backgroundColor: activeTab === tab.id ? 'rgba(255,255,255,0.08)' : 
                               hoveredTab === tab.id ? 'rgba(255,255,255,0.04)' : 'transparent',
-              color: activeTab === tab.id ? '#ffffff' : 'rgba(255,255,255,0.55)',
+              color: activeTab === tab.id ? '#ffffff' : 'rgba(255,255,255,0.6)',
               fontSize: '13px',
               fontWeight: activeTab === tab.id ? '500' : '400',
               transition: 'all 0.12s ease',
+              opacity: activeTab === tab.id ? 1 : hoveredTab === tab.id ? 0.85 : 0.6,
             }}
           >
-            {tab.label}
+            <span style={{ display: 'flex', alignItems: 'center' }}>{tab.icon}</span>
+            <span>{tab.label}</span>
           </div>
         ))}
       </div>

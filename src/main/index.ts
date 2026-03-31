@@ -244,13 +244,12 @@ function createSettingsWindow() {
     minimizable: false,
     maximizable: false,
     show: true,
-    transparent: true,
-    backgroundColor: '#00000000',
     webPreferences: {
       preload,
       nodeIntegration: false,
       contextIsolation: true,
     },
+    backgroundColor: '#121212',
   })
 
   const baseUrl = process.env.VITE_DEV_SERVER_URL || 'http://localhost:5173'

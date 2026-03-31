@@ -56,6 +56,7 @@
   },
   "dependencies": {
     "electron-store": "^11.0.2",
+    "lucide-react": "^1.7.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "uiohook-napi": "^1.5.5"
