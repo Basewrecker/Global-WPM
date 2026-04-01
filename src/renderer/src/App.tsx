@@ -1,9 +1,10 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 
 interface WPMStats {
   wpm: number
   charCount: number
   timeWindowMs: number
+  lastKeyTime: number
   smartColouring: boolean
   wpmTextSize: 'medium' | 'large'
   colorRanges: {
@@ -16,75 +17,125 @@ interface WPMStats {
   blur: boolean
 }
 
-function getWpmColor(wpm: number, ranges: WPMStats['colorRanges']): string {
-  if (wpm === 0) return '#9CA3AF'
-  if (wpm <= 60) return ranges.low
-  if (wpm <= 90) return ranges.mid
-  if (wpm <= 120) return ranges.high
-  return ranges.ultra
-}
+const IDLE_THRESHOLD_MS = 3000
 
 function App() {
-  const [wpm, setWpm] = useState(0)
   const [displayWpm, setDisplayWpm] = useState(0)
-  const [isDecaying, setIsDecaying] = useState(false)
   const [wpmColor, setWpmColor] = useState('#9ca3af')
   const [textSize, setTextSize] = useState<'medium' | 'large'>('medium')
   const [smartColouring, setSmartColouring] = useState(true)
-  const [opacity, setOpacity] = useState(0.9)
+  const [, setOpacity] = useState(0.9)
   const [blurEnabled, setBlurEnabled] = useState(false)
-
-  const fontSize = textSize === 'large' ? '48px' : '42px'
-  const labelSize = textSize === 'large' ? '12px' : '11px'
-
-  const defaultRanges = {
+  
+  const rawWpmRef = useRef(0)
+  const displayWpmRef = useRef(0)
+  const lastKeyTimeRef = useRef(0)
+  const lastColorTierRef = useRef(0)
+  const colorRangesRef = useRef<WPMStats['colorRanges']>({
     low: '#ef4444',
     mid: '#eab308',
     high: '#22c55e',
     ultra: '#3b82f6',
-  }
+  })
+
+  const fontSize = textSize === 'large' ? '48px' : '42px'
+  const labelSize = textSize === 'large' ? '12px' : '11px'
 
   useEffect(() => {
     const unsubscribe = window.electronAPI.subscribeToWPM((stats: WPMStats) => {
-      setWpm(stats.wpm)
+      rawWpmRef.current = stats.wpm
+      lastKeyTimeRef.current = stats.lastKeyTime || 0
       setTextSize(stats.wpmTextSize || 'medium')
       setSmartColouring(stats.smartColouring)
       setOpacity(stats.opacity ?? 0.9)
-      setBlurEnabled(stats.blur ?? true)
-      if (stats.smartColouring) {
-        setWpmColor(getWpmColor(stats.wpm, stats.colorRanges || defaultRanges))
-      } else {
-        setWpmColor('#9CA3AF')
-      }
-      if (stats.wpm > 0) {
-        setIsDecaying(false)
-        setDisplayWpm(stats.wpm)
+      setBlurEnabled(stats.blur ?? false)
+      if (stats.colorRanges) {
+        colorRangesRef.current = stats.colorRanges
       }
     })
     return () => unsubscribe()
   }, [])
 
   useEffect(() => {
-    if (wpm === 0 && displayWpm > 0 && !isDecaying) {
-      setIsDecaying(true)
-
-      let current = displayWpm
-
-      const interval = setInterval(() => {
-        current -= Math.max(1, Math.ceil(current * 0.08))
-
-        if (current <= 0) {
-          current = 0
-          clearInterval(interval)
-          setIsDecaying(false)
-        }
-
-        setDisplayWpm(current)
-      }, 30)
-
-      return () => clearInterval(interval)
+    let animationId: number
+    
+    const getTier = (wpm: number): number => {
+      if (wpm < 60) return 0
+      if (wpm < 90) return 1
+      if (wpm < 120) return 2
+      return 3
     }
-  }, [wpm])
+    
+    const getColorForTier = (tier: number): string => {
+      const ranges = colorRangesRef.current
+      switch (tier) {
+        case 0: return ranges.low
+        case 1: return ranges.mid
+        case 2: return ranges.high
+        case 3: return ranges.ultra
+        default: return '#9CA3AF'
+      }
+    }
+    
+    const animate = () => {
+      const now = Date.now()
+      const lastKeyTime = lastKeyTimeRef.current
+      const rawWpm = rawWpmRef.current
+      let displayWpm = displayWpmRef.current
+      
+      const isIdle = lastKeyTime > 0 && (now - lastKeyTime) > IDLE_THRESHOLD_MS
+      
+      if (isIdle && displayWpm > 0) {
+        displayWpm *= 0.96
+        if (displayWpm < 0.5) displayWpm = 0
+      } else if (rawWpm > 0) {
+        displayWpm += (rawWpm - displayWpm) * 0.5
+      }
+      
+      displayWpmRef.current = displayWpm
+      setDisplayWpm(displayWpm)
+      
+      const roundedWpm = Math.round(displayWpm)
+      
+      if (smartColouring && roundedWpm > 0) {
+        const currentTier = getTier(roundedWpm)
+        const lastTier = lastColorTierRef.current
+        
+        let newColor = getColorForTier(lastTier)
+        
+        if (currentTier !== lastTier) {
+          const goingUp = currentTier > lastTier
+          const buffer = 2
+          
+          if (goingUp) {
+            newColor = getColorForTier(currentTier)
+          } else {
+            let threshold = 0
+            if (lastTier === 1) threshold = 58
+            else if (lastTier === 2) threshold = 88
+            else if (lastTier === 3) threshold = 118
+            
+            if (roundedWpm <= threshold - buffer) {
+              newColor = getColorForTier(currentTier)
+            }
+          }
+        }
+        
+        if (newColor !== getColorForTier(lastTier)) {
+          lastColorTierRef.current = getTier(roundedWpm)
+          setWpmColor(newColor)
+        }
+      } else if (roundedWpm <= 0) {
+        lastColorTierRef.current = -1
+        setWpmColor('#9CA3AF')
+      }
+      
+      animationId = requestAnimationFrame(animate)
+    }
+    
+    animationId = requestAnimationFrame(animate)
+    return () => cancelAnimationFrame(animationId)
+  }, [smartColouring])
 
   return (
     <div
@@ -110,7 +161,6 @@ function App() {
           color: wpmColor,
           letterSpacing: '-0.02em',
           fontVariantNumeric: 'tabular-nums',
-          transition: 'color 0.15s ease, font-size 0.2s ease',
         }}
       >
         {Math.round(displayWpm)}
@@ -123,7 +173,6 @@ function App() {
           lineHeight: 1,
           color: 'rgba(255, 255, 255, 0.65)',
           letterSpacing: '0.05em',
-          transition: 'font-size 0.2s ease',
         }}
       >
         WPM

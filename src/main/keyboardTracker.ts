@@ -10,6 +10,7 @@ export interface WPMStats {
   wpm: number
   charCount: number
   timeWindowMs: number
+  lastKeyTime: number
 }
 
 let keystrokes: Keystroke[] = []
@@ -124,7 +125,7 @@ function calculateWPM(): WPMStats {
   
   if (keystrokes.length === 0) {
     sessionStartTime = 0
-    return { wpm: 0, charCount: 0, timeWindowMs: 0 }
+    return { wpm: 0, charCount: 0, timeWindowMs: 0, lastKeyTime: 0 }
   }
   
   const inactivityTimeout = settings.behaviour?.inactivityTimeout ?? 5000
@@ -145,7 +146,7 @@ function calculateWPM(): WPMStats {
     
     keystrokes = []
     sessionStartTime = 0
-    return { wpm: 0, charCount: 0, timeWindowMs: 0 }
+    return { wpm: 0, charCount: 0, timeWindowMs: 0, lastKeyTime: 0 }
   }
   
   const windowStart = now - ROLLING_WINDOW_MS
@@ -153,7 +154,7 @@ function calculateWPM(): WPMStats {
   
   if (recentKeystrokes.length === 0) {
     sessionStartTime = 0
-    return { wpm: 0, charCount: 0, timeWindowMs: 0 }
+    return { wpm: 0, charCount: 0, timeWindowMs: 0, lastKeyTime: 0 }
   }
   
   const oldest = Math.min(...recentKeystrokes.map(k => k.timestamp))
@@ -164,7 +165,7 @@ function calculateWPM(): WPMStats {
   const minChars = settings.behaviour?.minKeystrokes ?? 8
   
   if (recentKeystrokes.length < minChars || actualSeconds < MIN_TIME_SEC) {
-    return { wpm: 0, charCount: recentKeystrokes.length, timeWindowMs: actualWindowMs }
+    return { wpm: 0, charCount: recentKeystrokes.length, timeWindowMs: actualWindowMs, lastKeyTime: lastKeypressTime }
   }
   
   const minutes = actualSeconds / 60
@@ -178,7 +179,8 @@ function calculateWPM(): WPMStats {
   return {
     wpm: Math.max(0, wpm),
     charCount: recentKeystrokes.length,
-    timeWindowMs: actualWindowMs
+    timeWindowMs: actualWindowMs,
+    lastKeyTime: lastKeypressTime
   }
 }
 

@@ -91,7 +91,7 @@ function animateMenuBarWpm(newWpm: number) {
 
 function startWPMBroadcast() {
   if (wpmUpdateInterval) return
-  
+   
   wpmUpdateInterval = setInterval(() => {
     if (mainWindow && !mainWindow.isDestroyed() && mainWindow.isVisible()) {
       const settings = getSettings()
@@ -114,7 +114,7 @@ function startWPMBroadcast() {
         }
       }
     }
-  }, 500)
+  }, 100)
 }
 
 function stopWPMBroadcast() {
