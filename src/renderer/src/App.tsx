@@ -30,13 +30,14 @@ function App() {
   const rawWpmRef = useRef(0)
   const displayWpmRef = useRef(0)
   const lastKeyTimeRef = useRef(0)
-  const lastColorTierRef = useRef(0)
   const colorRangesRef = useRef<WPMStats['colorRanges']>({
     low: '#ef4444',
     mid: '#eab308',
     high: '#22c55e',
     ultra: '#3b82f6',
   })
+
+  const defaultColor = '#9CA3AF'
 
   const fontSize = textSize === 'large' ? '48px' : '42px'
   const labelSize = textSize === 'large' ? '12px' : '11px'
@@ -80,55 +81,43 @@ function App() {
     const animate = () => {
       const now = Date.now()
       const lastKeyTime = lastKeyTimeRef.current
-      const rawWpm = rawWpmRef.current
+      let rawWpm = rawWpmRef.current
       let displayWpm = displayWpmRef.current
       
       const isIdle = lastKeyTime > 0 && (now - lastKeyTime) > IDLE_THRESHOLD_MS
       
-      if (isIdle && displayWpm > 0) {
-        displayWpm *= 0.96
-        if (displayWpm < 0.5) displayWpm = 0
-      } else if (rawWpm > 0) {
-        displayWpm += (rawWpm - displayWpm) * 0.5
+      if (isIdle) {
+        if (rawWpm > 0) {
+          rawWpm *= 0.96
+          if (rawWpm < 1) rawWpm = 0
+          rawWpmRef.current = rawWpm
+        }
+        
+        if (displayWpm > 0) {
+          displayWpm *= 0.96
+          if (displayWpm < 1) displayWpm = 0
+        }
+      } else {
+        if (rawWpm > 0) {
+          displayWpm += (rawWpm - displayWpm) * 0.4
+        }
       }
+      
+      if (!isFinite(displayWpm) || displayWpm < 0) displayWpm = 0
+      if (!isFinite(rawWpm) || rawWpm < 0) rawWpm = 0
       
       displayWpmRef.current = displayWpm
       setDisplayWpm(displayWpm)
       
       const roundedWpm = Math.round(displayWpm)
       
-      if (smartColouring && roundedWpm > 0) {
-        const currentTier = getTier(roundedWpm)
-        const lastTier = lastColorTierRef.current
-        
-        let newColor = getColorForTier(lastTier)
-        
-        if (currentTier !== lastTier) {
-          const goingUp = currentTier > lastTier
-          const buffer = 2
-          
-          if (goingUp) {
-            newColor = getColorForTier(currentTier)
-          } else {
-            let threshold = 0
-            if (lastTier === 1) threshold = 58
-            else if (lastTier === 2) threshold = 88
-            else if (lastTier === 3) threshold = 118
-            
-            if (roundedWpm <= threshold - buffer) {
-              newColor = getColorForTier(currentTier)
-            }
-          }
-        }
-        
-        if (newColor !== getColorForTier(lastTier)) {
-          lastColorTierRef.current = getTier(roundedWpm)
-          setWpmColor(newColor)
-        }
-      } else if (roundedWpm <= 0) {
-        lastColorTierRef.current = -1
-        setWpmColor('#9CA3AF')
+      let currentColor = defaultColor
+      if (smartColouring && !isIdle && roundedWpm > 0) {
+        const tier = getTier(roundedWpm)
+        currentColor = getColorForTier(tier)
       }
+      
+      setWpmColor(currentColor)
       
       animationId = requestAnimationFrame(animate)
     }
