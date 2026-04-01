@@ -6,6 +6,19 @@ export interface WPMStats {
   timeWindowMs: number
   smartColouring: boolean
   wpmTextSize: 'medium' | 'large'
+  colorRanges: {
+    low: string
+    mid: string
+    high: string
+    ultra: string
+  }
+}
+
+export interface ColorRanges {
+  low: string
+  mid: string
+  high: string
+  ultra: string
 }
 
 export interface ElectronAPI {
@@ -19,6 +32,8 @@ export interface ElectronAPI {
   getGlobalShortcut: () => Promise<string>
   setLockOverlayToDesktop: (enabled: boolean) => void
   setWpmTextSize: (size: 'medium' | 'large') => void
+  setColorRanges: (colorRanges: ColorRanges) => void
+  getColorRanges: () => Promise<ColorRanges>
   resetAllSettings: () => void
 }
 
@@ -54,6 +69,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
   },
   setWpmTextSize: (size: 'medium' | 'large') => {
     ipcRenderer.send('set-wpm-text-size', size)
+  },
+  setColorRanges: (colorRanges: ColorRanges) => {
+    ipcRenderer.send('set-color-ranges', colorRanges)
+  },
+  getColorRanges: (): Promise<ColorRanges> => {
+    return ipcRenderer.invoke('get-color-ranges')
   },
   resetAllSettings: () => {
     ipcRenderer.send('reset-all-settings')

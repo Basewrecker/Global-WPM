@@ -6,14 +6,20 @@ interface WPMStats {
   timeWindowMs: number
   smartColouring: boolean
   wpmTextSize: 'medium' | 'large'
+  colorRanges: {
+    low: string
+    mid: string
+    high: string
+    ultra: string
+  }
 }
 
-function getWpmColor(wpm: number): string {
+function getWpmColor(wpm: number, ranges: WPMStats['colorRanges']): string {
   if (wpm === 0) return '#9CA3AF'
-  if (wpm <= 60) return '#EF4444'
-  if (wpm <= 90) return '#EAB308'
-  if (wpm <= 120) return '#22C55E'
-  return '#3B82F6'
+  if (wpm <= 60) return ranges.low
+  if (wpm <= 90) return ranges.mid
+  if (wpm <= 120) return ranges.high
+  return ranges.ultra
 }
 
 function App() {
@@ -22,16 +28,25 @@ function App() {
   const [isDecaying, setIsDecaying] = useState(false)
   const [wpmColor, setWpmColor] = useState('#9ca3af')
   const [textSize, setTextSize] = useState<'medium' | 'large'>('medium')
+  const [smartColouring, setSmartColouring] = useState(true)
 
   const fontSize = textSize === 'large' ? '48px' : '42px'
   const labelSize = textSize === 'large' ? '12px' : '11px'
+
+  const defaultRanges = {
+    low: '#ef4444',
+    mid: '#eab308',
+    high: '#22c55e',
+    ultra: '#3b82f6',
+  }
 
   useEffect(() => {
     const unsubscribe = window.electronAPI.subscribeToWPM((stats: WPMStats) => {
       setWpm(stats.wpm)
       setTextSize(stats.wpmTextSize || 'medium')
+      setSmartColouring(stats.smartColouring)
       if (stats.smartColouring) {
-        setWpmColor(getWpmColor(stats.wpm))
+        setWpmColor(getWpmColor(stats.wpm, stats.colorRanges || defaultRanges))
       } else {
         setWpmColor('#9CA3AF')
       }

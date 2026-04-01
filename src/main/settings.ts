@@ -16,6 +16,12 @@ export interface Settings {
   appearance: {
     smartColouring: boolean
     wpmTextSize: 'medium' | 'large'
+    colorRanges: {
+      low: string
+      mid: string
+      high: string
+      ultra: string
+    }
   }
   behaviour: {
     inactivityTimeout: number
@@ -28,6 +34,13 @@ export interface Settings {
   advanced: {
     debugMode: boolean
   }
+}
+
+const defaultColorRanges = {
+  low: '#ef4444',
+  mid: '#eab308',
+  high: '#22c55e',
+  ultra: '#3b82f6',
 }
 
 const defaultSettings: Settings = {
@@ -44,6 +57,7 @@ const defaultSettings: Settings = {
   appearance: {
     smartColouring: true,
     wpmTextSize: 'medium',
+    colorRanges: { ...defaultColorRanges },
   },
   behaviour: {
     inactivityTimeout: 3500,
@@ -151,6 +165,15 @@ function validateSettings(s: Settings): Settings {
   validated.appearance.wpmTextSize = (wpmTextSize === 'medium' || wpmTextSize === 'large')
     ? wpmTextSize
     : defaultSettings.appearance.wpmTextSize
+
+  if (s.appearance?.colorRanges && typeof s.appearance.colorRanges === 'object') {
+    validated.appearance.colorRanges = {
+      low: typeof s.appearance.colorRanges.low === 'string' ? s.appearance.colorRanges.low : defaultColorRanges.low,
+      mid: typeof s.appearance.colorRanges.mid === 'string' ? s.appearance.colorRanges.mid : defaultColorRanges.mid,
+      high: typeof s.appearance.colorRanges.high === 'string' ? s.appearance.colorRanges.high : defaultColorRanges.high,
+      ultra: typeof s.appearance.colorRanges.ultra === 'string' ? s.appearance.colorRanges.ultra : defaultColorRanges.ultra,
+    }
+  }
 
   const timeout = s.behaviour?.inactivityTimeout
   validated.behaviour.inactivityTimeout = typeof timeout === 'number'

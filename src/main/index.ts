@@ -15,6 +15,7 @@ let tray: Tray | null = null
 let settingsWindow: BrowserWindow | null = null
 let wpmUpdateInterval: NodeJS.Timeout | null = null
 let fadeInterval: NodeJS.Timeout | null = null
+let saveTimeout: NodeJS.Timeout | null = null
 let lastMenuBarWpm = 0
 let menuBarAnimationTimeouts: NodeJS.Timeout[] = []
 let registeredShortcut: string | null = null
@@ -97,7 +98,8 @@ function startWPMBroadcast() {
       safeSend(mainWindow, 'wpm:update', {
         ...stats,
         smartColouring: settings.appearance.smartColouring,
-        wpmTextSize: settings.appearance.wpmTextSize
+        wpmTextSize: settings.appearance.wpmTextSize,
+        colorRanges: settings.appearance.colorRanges
       })
       
       if (tray) {
@@ -535,6 +537,14 @@ ipcMain.handle('get-global-shortcut', () => {
   return getSettings().general.globalShortcut
 })
 
+ipcMain.handle('get-color-ranges', () => {
+  return getSettings().appearance.colorRanges
+})
+
+ipcMain.on('set-color-ranges', (_, colorRanges) => {
+  updateSettings({ appearance: { colorRanges } })
+})
+
 ipcMain.on('set-lock-overlay-to-desktop', (_, enabled: boolean) => {
   updateSettings({ general: { lockOverlayToDesktop: enabled } })
   if (mainWindow && !mainWindow.isDestroyed()) {
@@ -577,6 +587,12 @@ ipcMain.on('reset-all-settings', () => {
     appearance: {
       smartColouring: true,
       wpmTextSize: 'medium' as const,
+      colorRanges: {
+        low: '#ef4444',
+        mid: '#eab308',
+        high: '#22c55e',
+        ultra: '#3b82f6',
+      },
     },
   }
   updateSettings(defaults)
@@ -607,6 +623,13 @@ app.on('activate', () => {
 
 app.on('will-quit', () => {
   unregisterShortcut()
+})
+
+app.on('before-quit', () => {
+  if (saveTimeout) {
+    clearTimeout(saveTimeout)
+    saveTimeout = null
+  }
 })
 
 

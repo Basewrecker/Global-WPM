@@ -205,15 +205,17 @@ function ColorPicker({ color, onChange, disabled }: { color: string; onChange: (
       <div
         onClick={() => !disabled && setIsOpen(!isOpen)}
         style={{
-          width: '36px',
-          height: '24px',
+          width: '22px',
+          height: '22px',
           backgroundColor: color,
-          borderRadius: '4px',
+          borderRadius: '7px',
           cursor: disabled ? 'not-allowed' : 'pointer',
-          border: '1px solid rgba(255,255,255,0.08)',
+          boxShadow: 'inset 0 0 0 1px rgba(0,0,0,0.25), 0 0 6px rgba(0,0,0,0.2)',
           opacity: disabled ? 0.4 : 1,
-          transition: 'opacity 0.2s ease',
+          transition: 'transform 0.15s ease, opacity 0.2s ease',
         }}
+        onMouseEnter={(e) => { if (!disabled) e.currentTarget.style.transform = 'scale(1.05)' }}
+        onMouseLeave={(e) => { e.currentTarget.style.transform = 'scale(1)' }}
       />
       {isOpen && !disabled && (
         <div style={{
@@ -467,17 +469,19 @@ function ResetButton({ onClick }: { onClick: () => void }) {
   )
 }
 
+const defaultColors = {
+  low: '#ef4444',
+  mid: '#eab308',
+  high: '#22c55e',
+  ultra: '#3b82f6',
+}
+
 export default function Settings() {
   const [settings, setSettings] = useState<Settings>(defaultSettings)
   const [activeTab, setActiveTab] = useState<TabId>('general')
   const [hoveredTab, setHoveredTab] = useState<TabId | null>(null)
   const [overlayOpacity, setOverlayOpacity] = useState(0.9)
-  const [colorRanges, setColorRanges] = useState({
-    low: '#ef4444',
-    mid: '#eab308',
-    high: '#22c55e',
-    ultra: '#3b82f6',
-  })
+  const [colorRanges, setColorRanges] = useState({ ...defaultColors })
 
   useEffect(() => {
     window.electronAPI.getGlobalShortcut().then((shortcut) => {
@@ -485,6 +489,11 @@ export default function Settings() {
         ...prev,
         general: { ...prev.general, globalShortcut: shortcut }
       }))
+    })
+    window.electronAPI.getColorRanges().then((ranges) => {
+      if (ranges) {
+        setColorRanges(ranges)
+      }
     })
   }, [])
 
@@ -590,30 +599,103 @@ export default function Settings() {
             <div 
               style={{ 
                 marginTop: '16px',
-                opacity: settings.appearance.smartColouring ? 1 : 0.4,
-                transition: 'opacity 0.2s ease',
-                pointerEvents: settings.appearance.smartColouring ? 'auto' : 'none',
+                opacity: settings.appearance.smartColouring ? 1 : 0.5,
+                filter: settings.appearance.smartColouring ? 'none' : 'grayscale(0.3)',
+                transition: 'opacity 0.2s ease, filter 0.2s ease',
               }}
             >
               <SectionTitle>WPM Color Ranges</SectionTitle>
               <p style={{ fontSize: '12px', color: 'rgba(255,255,255,0.5)', marginBottom: '12px', marginTop: '4px' }}>
                 Customize how your WPM is colored based on typing speed.
               </p>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '10px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '10px', cursor: settings.appearance.smartColouring ? 'default' : 'not-allowed' }}>
                 <span style={{ fontSize: '13px', color: '#e5e5e7' }}>Slow (0–60)</span>
-                <ColorPicker color={colorRanges.low} onChange={(c) => setColorRanges({ ...colorRanges, low: c })} disabled={!settings.appearance.smartColouring} />
+                <ColorPicker color={colorRanges.low} onChange={(c) => {
+                  const newRanges = { ...colorRanges, low: c }
+                  setColorRanges(newRanges)
+                  window.electronAPI.setColorRanges(newRanges)
+                }} disabled={!settings.appearance.smartColouring} />
               </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '10px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '10px', cursor: settings.appearance.smartColouring ? 'default' : 'not-allowed' }}>
                 <span style={{ fontSize: '13px', color: '#e5e5e7' }}>Average (60–90)</span>
-                <ColorPicker color={colorRanges.mid} onChange={(c) => setColorRanges({ ...colorRanges, mid: c })} disabled={!settings.appearance.smartColouring} />
+                <ColorPicker color={colorRanges.mid} onChange={(c) => {
+                  const newRanges = { ...colorRanges, mid: c }
+                  setColorRanges(newRanges)
+                  window.electronAPI.setColorRanges(newRanges)
+                }} disabled={!settings.appearance.smartColouring} />
               </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '10px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '10px', cursor: settings.appearance.smartColouring ? 'default' : 'not-allowed' }}>
                 <span style={{ fontSize: '13px', color: '#e5e5e7' }}>Fast (90–120)</span>
-                <ColorPicker color={colorRanges.high} onChange={(c) => setColorRanges({ ...colorRanges, high: c })} disabled={!settings.appearance.smartColouring} />
+                <ColorPicker color={colorRanges.high} onChange={(c) => {
+                  const newRanges = { ...colorRanges, high: c }
+                  setColorRanges(newRanges)
+                  window.electronAPI.setColorRanges(newRanges)
+                }} disabled={!settings.appearance.smartColouring} />
               </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '10px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '10px', cursor: settings.appearance.smartColouring ? 'default' : 'not-allowed' }}>
                 <span style={{ fontSize: '13px', color: '#e5e5e7' }}>Very Fast (120+)</span>
-                <ColorPicker color={colorRanges.ultra} onChange={(c) => setColorRanges({ ...colorRanges, ultra: c })} disabled={!settings.appearance.smartColouring} />
+                <ColorPicker color={colorRanges.ultra} onChange={(c) => {
+                  const newRanges = { ...colorRanges, ultra: c }
+                  setColorRanges(newRanges)
+                  window.electronAPI.setColorRanges(newRanges)
+                }} disabled={!settings.appearance.smartColouring} />
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '12px' }}>
+                <button
+                  onClick={() => {
+                    if (
+                      colorRanges.low !== defaultColors.low ||
+                      colorRanges.mid !== defaultColors.mid ||
+                      colorRanges.high !== defaultColors.high ||
+                      colorRanges.ultra !== defaultColors.ultra
+                    ) {
+                      setColorRanges({ ...defaultColors })
+                      window.electronAPI.setColorRanges(defaultColors)
+                    }
+                  }}
+                  disabled={
+                    colorRanges.low === defaultColors.low &&
+                    colorRanges.mid === defaultColors.mid &&
+                    colorRanges.high === defaultColors.high &&
+                    colorRanges.ultra === defaultColors.ultra
+                  }
+                  style={{
+                    fontSize: '11px',
+                    color: 'rgba(255,255,255,0.6)',
+                    background: 'rgba(255,255,255,0.02)',
+                    border: '1px solid rgba(255,255,255,0.06)',
+                    padding: '5px 10px',
+                    borderRadius: '6px',
+                    cursor: 
+                      colorRanges.low === defaultColors.low &&
+                      colorRanges.mid === defaultColors.mid &&
+                      colorRanges.high === defaultColors.high &&
+                      colorRanges.ultra === defaultColors.ultra ? 'not-allowed' : 'pointer',
+                    transition: 'all 0.15s ease',
+                    opacity: 
+                      colorRanges.low === defaultColors.low &&
+                      colorRanges.mid === defaultColors.mid &&
+                      colorRanges.high === defaultColors.high &&
+                      colorRanges.ultra === defaultColors.ultra ? 0.4 : 1,
+                  }}
+                  onMouseEnter={(e) => {
+                    if (
+                      colorRanges.low !== defaultColors.low ||
+                      colorRanges.mid !== defaultColors.mid ||
+                      colorRanges.high !== defaultColors.high ||
+                      colorRanges.ultra !== defaultColors.ultra
+                    ) {
+                      e.currentTarget.style.background = 'rgba(255,255,255,0.06)'
+                      e.currentTarget.style.color = 'rgba(255,255,255,0.9)'
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.background = 'rgba(255,255,255,0.02)'
+                    e.currentTarget.style.color = 'rgba(255,255,255,0.6)'
+                  }}
+                >
+                  Reset to Default
+                </button>
               </div>
             </div>
           </div>
