@@ -88,13 +88,13 @@ function App() {
       
       if (isIdle) {
         if (rawWpm > 0) {
-          rawWpm *= 0.96
+          rawWpm *= 0.92
           if (rawWpm < 1) rawWpm = 0
           rawWpmRef.current = rawWpm
         }
         
         if (displayWpm > 0) {
-          displayWpm *= 0.96
+          displayWpm *= 0.92
           if (displayWpm < 1) displayWpm = 0
         }
       } else {
