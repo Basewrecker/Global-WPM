@@ -445,23 +445,22 @@ function ResetButton({ onClick }: { onClick: () => void }) {
     <button
       onClick={onClick}
       style={{
-        width: '100%',
-        padding: '10px',
-        backgroundColor: 'transparent',
-        border: '1px solid rgba(255,255,255,0.08)',
-        borderRadius: '6px',
+        fontSize: '11px',
         color: 'rgba(255,255,255,0.6)',
-        fontSize: '13px',
+        background: 'rgba(255,255,255,0.02)',
+        border: '1px solid rgba(255,255,255,0.06)',
+        borderRadius: '6px',
+        padding: '5px 10px',
         cursor: 'pointer',
         transition: 'all 0.15s ease',
       }}
       onMouseEnter={(e) => {
-        e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.04)'
-        e.currentTarget.style.borderColor = 'rgba(255,255,255,0.15)'
+        e.currentTarget.style.background = 'rgba(255,255,255,0.06)'
+        e.currentTarget.style.color = 'rgba(255,255,255,0.9)'
       }}
       onMouseLeave={(e) => {
-        e.currentTarget.style.backgroundColor = 'transparent'
-        e.currentTarget.style.borderColor = 'rgba(255,255,255,0.08)'
+        e.currentTarget.style.background = 'rgba(255,255,255,0.02)'
+        e.currentTarget.style.color = 'rgba(255,255,255,0.6)'
       }}
     >
       Reset All Settings
@@ -553,7 +552,7 @@ export default function Settings() {
                 }}
               />
             </SettingRow>
-            <div style={{ marginTop: '24px' }}>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '16px' }}>
               <ResetButton onClick={() => {
                 if (window.confirm('Are you sure you want to reset all settings?')) {
                   window.electronAPI.resetAllSettings()
