@@ -19,6 +19,7 @@ let saveTimeout: NodeJS.Timeout | null = null
 let lastMenuBarWpm = 0
 let menuBarAnimationTimeouts: NodeJS.Timeout[] = []
 let registeredShortcut: string | null = null
+let hasSavedPosition = false
 
 const SETTINGS_WIDTH = 780
 const SETTINGS_HEIGHT = 560
@@ -133,23 +134,13 @@ function setTopRightPosition() {
 
 function createWindow() {
   const savedBounds = store.get('overlayBounds') as { x: number; y: number } | null
-  const { width, height } = screen.getPrimaryDisplay().workAreaSize
-  
-  let initialX: number | undefined
-  let initialY: number | undefined
-  
-  if (savedBounds) {
-    if (savedBounds.x <= width && savedBounds.y <= height) {
-      initialX = savedBounds.x
-      initialY = savedBounds.y
-    }
-  }
+  hasSavedPosition = savedBounds !== null && typeof savedBounds.x === 'number' && typeof savedBounds.y === 'number'
   
   mainWindow = new BrowserWindow({
     width: WINDOW_WIDTH,
     height: WINDOW_HEIGHT,
-    x: initialX,
-    y: initialY,
+    x: hasSavedPosition ? savedBounds.x : undefined,
+    y: hasSavedPosition ? savedBounds.y : undefined,
     frame: false,
     transparent: true,
     resizable: false,
@@ -175,7 +166,7 @@ function createWindow() {
   mainWindow.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true })
 
   mainWindow.on('ready-to-show', () => {
-    if (!savedBounds) {
+    if (!hasSavedPosition) {
       setTopRightPosition()
       setTimeout(setTopRightPosition, 50)
       setTimeout(setTopRightPosition, 150)
@@ -183,7 +174,7 @@ function createWindow() {
   })
 
   mainWindow.on('resize', () => {
-    if (!savedBounds) {
+    if (!hasSavedPosition) {
       setTopRightPosition()
     }
   })
@@ -234,7 +225,9 @@ function createWindow() {
     mainWindow?.show()
     mainWindow?.focus()
     startWPMBroadcast()
-    setTopRightPosition()
+    if (!hasSavedPosition) {
+      setTopRightPosition()
+    }
   })
 }
 
