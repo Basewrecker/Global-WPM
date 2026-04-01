@@ -67,7 +67,7 @@ function App() {
 
   return (
     <div
-      className="h-[100px] flex flex-row items-center justify-center px-6 overflow-hidden select-none cursor-default"
+      className="h-[100px] flex flex-row items-center justify-center px-6 overflow-hidden select-none cursor-default overlay-drag"
       style={{
         background: 'rgba(28, 28, 30, 0.92)',
         backdropFilter: 'blur(25px)',
@@ -80,7 +80,6 @@ function App() {
         userSelect: 'none',
         WebkitUserSelect: 'none',
       }}
-      {...({ WebkitAppRegion: 'drag' } as React.HTMLAttributes<HTMLDivElement>)}
     >
       <span
         className="leading-none"

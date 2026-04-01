@@ -150,11 +150,13 @@ function createWindow() {
     transparent: true,
     resizable: false,
     movable: true,
+    fullscreenable: false,
+    hasShadow: false,
     minimizable: false,
     maximizable: false,
     closable: false,
     alwaysOnTop: true,
-    skipTaskbar: false,
+    skipTaskbar: true,
     show: true,
     webPreferences: {
       preload,
@@ -164,7 +166,8 @@ function createWindow() {
     backgroundColor: '#00000000',
   })
 
-  mainWindow.setAlwaysOnTop(true)
+  mainWindow.setMovable(true)
+  mainWindow.setAlwaysOnTop(true, 'floating')
   mainWindow.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true })
 
   mainWindow.on('ready-to-show', () => {

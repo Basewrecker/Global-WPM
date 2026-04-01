@@ -1,6 +1,6 @@
 {
   "name": "wpm-tracker",
-  "version": "0.1.0",
+  "version": "0.1.2",
   "description": "WPM Tracker - macOS menu bar application",
   "main": "dist-electron/main/index.js",
   "scripts": {

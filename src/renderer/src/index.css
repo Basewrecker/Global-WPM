@@ -35,7 +35,8 @@ body {
 }
 
 /* Electron drag regions */
-.titlebar-drag {
+.titlebar-drag,
+.overlay-drag {
   -webkit-app-region: drag;
 }
 
