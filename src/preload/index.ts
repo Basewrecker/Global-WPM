@@ -12,6 +12,8 @@ export interface WPMStats {
     high: string
     ultra: string
   }
+  opacity: number
+  blur: boolean
 }
 
 export interface ColorRanges {
@@ -53,7 +55,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.send('set-show-overlay', enabled)
   },
   setOpacity: (opacity: number) => {
-    ipcRenderer.send('set-opacity', opacity)
+    return ipcRenderer.invoke('set-opacity', opacity)
+  },
+  setBlur: (enabled: boolean) => {
+    return ipcRenderer.invoke('set-blur', enabled)
   },
   setSmartColouring: (enabled: boolean) => {
     ipcRenderer.send('set-smart-colouring', enabled)

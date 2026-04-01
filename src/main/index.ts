@@ -100,7 +100,9 @@ function startWPMBroadcast() {
         ...stats,
         smartColouring: settings.appearance.smartColouring,
         wpmTextSize: settings.appearance.wpmTextSize,
-        colorRanges: settings.appearance.colorRanges
+        colorRanges: settings.appearance.colorRanges,
+        opacity: settings.display.opacity,
+        blur: settings.display.blur
       })
       
       if (tray) {
@@ -164,6 +166,7 @@ function createWindow() {
   mainWindow.setMovable(true)
   mainWindow.setAlwaysOnTop(true, 'floating')
   mainWindow.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true })
+  mainWindow.setBackgroundColor('#00000000')
 
   mainWindow.on('ready-to-show', () => {
     if (!hasSavedPosition) {
@@ -317,12 +320,13 @@ function setOverlayVisible(visible: boolean) {
 function setOverlayOpacity(opacity: number) {
   if (opacityTimeout) {
     clearTimeout(opacityTimeout)
+    opacityTimeout = null
   }
   opacityTimeout = setTimeout(() => {
     if (mainWindow && !mainWindow.isDestroyed()) {
       mainWindow.setOpacity(Math.min(1, Math.max(0.3, opacity)))
     }
-  }, 50)
+  }, 16)
 }
 
 function toggleWindow() {
@@ -506,9 +510,21 @@ ipcMain.on('set-show-overlay', (_, enabled: boolean) => {
   setOverlayVisible(enabled)
 })
 
-ipcMain.on('set-opacity', (_, opacity: number) => {
-  updateSettings({ display: { opacity } })
-  setOverlayOpacity(opacity)
+ipcMain.handle('set-opacity', (_, opacity: number) => {
+  if (!mainWindow || mainWindow.isDestroyed()) return
+  const normalizedOpacity = opacity / 100
+  updateSettings({ display: { opacity: normalizedOpacity } })
+  setOverlayOpacity(normalizedOpacity)
+})
+
+ipcMain.handle('set-blur', (_, enabled: boolean) => {
+  if (!mainWindow || mainWindow.isDestroyed()) return
+  updateSettings({ display: { blur: enabled } })
+  if (enabled) {
+    mainWindow.setVibrancy('under-window')
+  } else {
+    mainWindow.setVibrancy('none')
+  }
 })
 
 ipcMain.on('set-smart-colouring', (_, enabled: boolean) => {

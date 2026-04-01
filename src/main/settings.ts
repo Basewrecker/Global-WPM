@@ -12,6 +12,7 @@ export interface Settings {
   display: {
     showOverlay: boolean
     opacity: number
+    blur: boolean
   }
   appearance: {
     smartColouring: boolean
@@ -53,6 +54,7 @@ const defaultSettings: Settings = {
   display: {
     showOverlay: true,
     opacity: 0.9,
+    blur: true,
   },
   appearance: {
     smartColouring: true,
@@ -156,6 +158,10 @@ function validateSettings(s: Settings): Settings {
   validated.display.opacity = typeof opacity === 'number'
     ? Math.min(1, Math.max(0.3, opacity))
     : defaultSettings.display.opacity
+
+  validated.display.blur = typeof s.display?.blur === 'boolean'
+    ? s.display.blur
+    : defaultSettings.display.blur
 
   validated.appearance.smartColouring = typeof s.appearance?.smartColouring === 'boolean'
     ? s.appearance.smartColouring

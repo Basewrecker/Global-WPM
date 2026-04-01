@@ -12,6 +12,8 @@ interface WPMStats {
     high: string
     ultra: string
   }
+  opacity: number
+  blur: boolean
 }
 
 function getWpmColor(wpm: number, ranges: WPMStats['colorRanges']): string {
@@ -29,6 +31,8 @@ function App() {
   const [wpmColor, setWpmColor] = useState('#9ca3af')
   const [textSize, setTextSize] = useState<'medium' | 'large'>('medium')
   const [smartColouring, setSmartColouring] = useState(true)
+  const [opacity, setOpacity] = useState(0.9)
+  const [blurEnabled, setBlurEnabled] = useState(true)
 
   const fontSize = textSize === 'large' ? '48px' : '42px'
   const labelSize = textSize === 'large' ? '12px' : '11px'
@@ -45,6 +49,8 @@ function App() {
       setWpm(stats.wpm)
       setTextSize(stats.wpmTextSize || 'medium')
       setSmartColouring(stats.smartColouring)
+      setOpacity(stats.opacity ?? 0.9)
+      setBlurEnabled(stats.blur ?? true)
       if (stats.smartColouring) {
         setWpmColor(getWpmColor(stats.wpm, stats.colorRanges || defaultRanges))
       } else {
@@ -80,15 +86,18 @@ function App() {
     }
   }, [wpm])
 
+  const backgroundColor = blurEnabled
+    ? 'transparent'
+    : 'rgba(28, 28, 30, 0.92)'
+
+  console.log('blurEnabled:', blurEnabled, 'bg:', backgroundColor)
+
   return (
     <div
       className="h-[100px] flex flex-row items-center justify-center px-6 overflow-hidden select-none cursor-default overlay-drag"
       style={{
-        background: 'rgba(28, 28, 30, 0.92)',
-        backdropFilter: 'blur(25px)',
-        WebkitBackdropFilter: 'blur(25px)',
+        backgroundColor,
         borderRadius: '18px',
-        border: '1px solid rgba(255, 255, 255, 0.08)',
         fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, sans-serif",
         minWidth: textSize === 'large' ? '160px' : '145px',
         gap: '8px',

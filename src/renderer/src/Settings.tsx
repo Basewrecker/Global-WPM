@@ -177,7 +177,7 @@ function SliderRow({ label, value, min, max, step, onChange }: {
           }}
         />
         <span style={{ fontSize: '12px', color: 'rgba(255,255,255,0.6)', minWidth: '36px', textAlign: 'right' }}>
-          {Math.round(value * 100)}%
+          {Math.round(value)}%
         </span>
       </div>
     </div>
@@ -480,7 +480,8 @@ export default function Settings() {
   const [settings, setSettings] = useState<Settings>(defaultSettings)
   const [activeTab, setActiveTab] = useState<TabId>('general')
   const [hoveredTab, setHoveredTab] = useState<TabId | null>(null)
-  const [overlayOpacity, setOverlayOpacity] = useState(0.9)
+  const [overlayOpacity, setOverlayOpacity] = useState(90)
+  const [blurEnabled, setBlurEnabled] = useState(true)
   const [colorRanges, setColorRanges] = useState({ ...defaultColors })
 
   useEffect(() => {
@@ -552,18 +553,6 @@ export default function Settings() {
                 }}
               />
             </SettingRow>
-            <SectionTitle>Display</SectionTitle>
-            <SliderRow
-              label="Overlay Opacity"
-              value={overlayOpacity}
-              min={0.4}
-              max={1}
-              step={0.05}
-              onChange={(v) => {
-                setOverlayOpacity(v)
-                window.electronAPI.setOpacity(v)
-              }}
-            />
             <div style={{ marginTop: '24px' }}>
               <ResetButton onClick={() => {
                 if (window.confirm('Are you sure you want to reset all settings?')) {
@@ -698,6 +687,24 @@ export default function Settings() {
                 </button>
               </div>
             </div>
+            <SectionTitle>Display</SectionTitle>
+            <SettingRow label="Blur Effect">
+              <Toggle checked={blurEnabled} onChange={(v) => {
+                setBlurEnabled(v)
+                window.electronAPI.setBlur(v)
+              }} />
+            </SettingRow>
+            <SliderRow
+              label="Overlay Opacity"
+              value={overlayOpacity}
+              min={0}
+              max={100}
+              step={1}
+              onChange={(v) => {
+                setOverlayOpacity(v)
+                window.electronAPI.setOpacity(v)
+              }}
+            />
           </div>
         )
 
