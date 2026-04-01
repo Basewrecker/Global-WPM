@@ -24,6 +24,8 @@ const SETTINGS_HEIGHT = 560
 
 const WINDOW_WIDTH = 145
 const WINDOW_HEIGHT = 100
+const WINDOW_WIDTH_LARGE = 180
+const WINDOW_HEIGHT_LARGE = 110
 const preload = join(__dirname, '../preload/index.js')
 
 const store = new Store({
@@ -385,6 +387,7 @@ function createSettingsWindow() {
     show: true,
     vibrancy: 'sidebar',
     visualEffectState: 'active',
+    backgroundMaterial: 'sidebar',
     webPreferences: {
       preload,
       nodeIntegration: false,
@@ -541,6 +544,26 @@ ipcMain.on('set-lock-overlay-to-desktop', (_, enabled: boolean) => {
 
 ipcMain.on('set-wpm-text-size', (_, size: 'medium' | 'large') => {
   updateSettings({ appearance: { wpmTextSize: size } })
+  setTimeout(() => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      const bounds = mainWindow.getBounds()
+      if (size === 'large') {
+        mainWindow.setBounds({
+          x: bounds.x,
+          y: bounds.y,
+          width: WINDOW_WIDTH_LARGE,
+          height: WINDOW_HEIGHT_LARGE
+        }, true)
+      } else {
+        mainWindow.setBounds({
+          x: bounds.x,
+          y: bounds.y,
+          width: WINDOW_WIDTH,
+          height: WINDOW_HEIGHT
+        }, true)
+      }
+    }
+  }, 10)
 })
 
 ipcMain.on('reset-all-settings', () => {

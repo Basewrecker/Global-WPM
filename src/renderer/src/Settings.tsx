@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { Settings as SettingsIcon, Sun, Sliders, Activity, Wrench } from 'lucide-react'
+import { HexColorPicker } from 'react-colorful'
 
 const DEFAULT_SHORTCUT = 'Alt+Shift+W'
 
@@ -147,6 +148,110 @@ function NumberRow({ label, value, min, max, onChange }: {
           outline: 'none',
         }}
       />
+    </div>
+  )
+}
+
+function SliderRow({ label, value, min, max, step, onChange }: {
+  label: string; value: number; min: number; max: number; step: number; onChange: (v: number) => void
+}) {
+  return (
+    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 0' }}>
+      <span style={{ fontSize: '13px', color: '#e5e5e7' }}>{label}</span>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+        <input
+          type="range"
+          min={min}
+          max={max}
+          step={step}
+          value={value}
+          onChange={(e) => onChange(Number(e.target.value))}
+          style={{
+            width: '120px',
+            height: '4px',
+            appearance: 'none',
+            background: `linear-gradient(to right, #30d158 ${((value - min) / (max - min)) * 100}%, rgba(255,255,255,0.15) ${((value - min) / (max - min)) * 100}%)`,
+            borderRadius: '2px',
+            outline: 'none',
+            cursor: 'pointer',
+          }}
+        />
+        <span style={{ fontSize: '12px', color: 'rgba(255,255,255,0.6)', minWidth: '36px', textAlign: 'right' }}>
+          {Math.round(value * 100)}%
+        </span>
+      </div>
+    </div>
+  )
+}
+
+function ColorPicker({ color, onChange, disabled }: { color: string; onChange: (color: string) => void; disabled?: boolean }) {
+  const [isOpen, setIsOpen] = useState(false)
+  const popoverRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (popoverRef.current && !popoverRef.current.contains(event.target as Node)) {
+        setIsOpen(false)
+      }
+    }
+    if (isOpen) {
+      document.addEventListener('mousedown', handleClickOutside)
+    }
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [isOpen])
+
+  return (
+    <div ref={popoverRef} style={{ position: 'relative' }}>
+      <div
+        onClick={() => !disabled && setIsOpen(!isOpen)}
+        style={{
+          width: '36px',
+          height: '24px',
+          backgroundColor: color,
+          borderRadius: '4px',
+          cursor: disabled ? 'not-allowed' : 'pointer',
+          border: '1px solid rgba(255,255,255,0.08)',
+          opacity: disabled ? 0.4 : 1,
+          transition: 'opacity 0.2s ease',
+        }}
+      />
+      {isOpen && !disabled && (
+        <div style={{
+          position: 'absolute',
+          top: '32px',
+          right: 0,
+          zIndex: 1000,
+          background: 'rgba(20, 20, 20, 0.98)',
+          borderRadius: '10px',
+          padding: '12px',
+          boxShadow: '0 8px 32px rgba(0,0,0,0.5)',
+          border: '1px solid rgba(255,255,255,0.08)',
+        }}>
+          <HexColorPicker color={color} onChange={onChange} />
+          <input
+            type="text"
+            value={color.toUpperCase()}
+            onChange={(e) => {
+              const val = e.target.value
+              if (/^#[0-9A-Fa-f]{0,6}$/.test(val)) {
+                onChange(val)
+              }
+            }}
+            style={{
+              width: '80px',
+              marginTop: '8px',
+              padding: '6px 8px',
+              backgroundColor: 'rgba(44, 44, 46, 0.8)',
+              border: '1px solid rgba(255,255,255,0.08)',
+              borderRadius: '4px',
+              color: '#ffffff',
+              fontSize: '12px',
+              fontFamily: 'monospace',
+              outline: 'none',
+            }}
+          />
+        </div>
+      )}
     </div>
   )
 }
@@ -340,7 +445,6 @@ function ResetButton({ onClick }: { onClick: () => void }) {
       style={{
         width: '100%',
         padding: '10px',
-        marginTop: '24px',
         backgroundColor: 'transparent',
         border: '1px solid rgba(255,255,255,0.08)',
         borderRadius: '6px',
@@ -367,6 +471,13 @@ export default function Settings() {
   const [settings, setSettings] = useState<Settings>(defaultSettings)
   const [activeTab, setActiveTab] = useState<TabId>('general')
   const [hoveredTab, setHoveredTab] = useState<TabId | null>(null)
+  const [overlayOpacity, setOverlayOpacity] = useState(0.9)
+  const [colorRanges, setColorRanges] = useState({
+    low: '#ef4444',
+    mid: '#eab308',
+    high: '#22c55e',
+    ultra: '#3b82f6',
+  })
 
   useEffect(() => {
     window.electronAPI.getGlobalShortcut().then((shortcut) => {
@@ -432,22 +543,37 @@ export default function Settings() {
                 }}
               />
             </SettingRow>
-            <ResetButton onClick={() => {
-              if (window.confirm('Are you sure you want to reset all settings?')) {
-                window.electronAPI.resetAllSettings()
-                setSettings({
-                  ...defaultSettings,
-                  general: {
-                    ...defaultSettings.general,
-                    globalShortcut: DEFAULT_SHORTCUT,
-                  },
-                  appearance: {
-                    ...defaultSettings.appearance,
-                    wpmTextSize: 'medium',
-                  },
-                })
-              }
-            }} />
+            <SectionTitle>Display</SectionTitle>
+            <SliderRow
+              label="Overlay Opacity"
+              value={overlayOpacity}
+              min={0.4}
+              max={1}
+              step={0.05}
+              onChange={(v) => {
+                setOverlayOpacity(v)
+                window.electronAPI.setOpacity(v)
+              }}
+            />
+            <div style={{ marginTop: '24px' }}>
+              <ResetButton onClick={() => {
+                if (window.confirm('Are you sure you want to reset all settings?')) {
+                  window.electronAPI.resetAllSettings()
+                  setSettings({
+                    ...defaultSettings,
+                    general: {
+                      ...defaultSettings.general,
+                      globalShortcut: DEFAULT_SHORTCUT,
+                    },
+                    appearance: {
+                      ...defaultSettings.appearance,
+                      wpmTextSize: 'medium',
+                    },
+                  })
+                  setOverlayOpacity(0.9)
+                }
+              }} />
+            </div>
           </div>
         )
 
@@ -461,6 +587,35 @@ export default function Settings() {
                 window.electronAPI.setSmartColouring(v)
               }} />
             </SettingRow>
+            <div 
+              style={{ 
+                marginTop: '16px',
+                opacity: settings.appearance.smartColouring ? 1 : 0.4,
+                transition: 'opacity 0.2s ease',
+                pointerEvents: settings.appearance.smartColouring ? 'auto' : 'none',
+              }}
+            >
+              <SectionTitle>WPM Color Ranges</SectionTitle>
+              <p style={{ fontSize: '12px', color: 'rgba(255,255,255,0.5)', marginBottom: '12px', marginTop: '4px' }}>
+                Customize how your WPM is colored based on typing speed.
+              </p>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '10px' }}>
+                <span style={{ fontSize: '13px', color: '#e5e5e7' }}>Slow (0–60)</span>
+                <ColorPicker color={colorRanges.low} onChange={(c) => setColorRanges({ ...colorRanges, low: c })} disabled={!settings.appearance.smartColouring} />
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '10px' }}>
+                <span style={{ fontSize: '13px', color: '#e5e5e7' }}>Average (60–90)</span>
+                <ColorPicker color={colorRanges.mid} onChange={(c) => setColorRanges({ ...colorRanges, mid: c })} disabled={!settings.appearance.smartColouring} />
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '10px' }}>
+                <span style={{ fontSize: '13px', color: '#e5e5e7' }}>Fast (90–120)</span>
+                <ColorPicker color={colorRanges.high} onChange={(c) => setColorRanges({ ...colorRanges, high: c })} disabled={!settings.appearance.smartColouring} />
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '10px' }}>
+                <span style={{ fontSize: '13px', color: '#e5e5e7' }}>Very Fast (120+)</span>
+                <ColorPicker color={colorRanges.ultra} onChange={(c) => setColorRanges({ ...colorRanges, ultra: c })} disabled={!settings.appearance.smartColouring} />
+              </div>
+            </div>
           </div>
         )
 
