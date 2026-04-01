@@ -473,6 +473,9 @@ app.whenReady().then(() => {
   
   if (mainWindow && !mainWindow.isDestroyed()) {
     mainWindow.setOpacity(settings.display.opacity)
+    if (settings.display.blur) {
+      mainWindow.setVibrancy('under-window')
+    }
     mainWindow.setVisibleOnAllWorkspaces(!settings.general.lockOverlayToDesktop, { visibleOnFullScreen: !settings.general.lockOverlayToDesktop })
     if (!settings.display.showOverlay) {
       mainWindow.hide()
@@ -523,8 +526,9 @@ ipcMain.handle('set-blur', (_, enabled: boolean) => {
   if (enabled) {
     mainWindow.setVibrancy('under-window')
   } else {
-    mainWindow.setVibrancy('none')
+    mainWindow.setVibrancy(undefined)
   }
+  mainWindow.setBackgroundColor('#00000000')
 })
 
 ipcMain.on('set-smart-colouring', (_, enabled: boolean) => {

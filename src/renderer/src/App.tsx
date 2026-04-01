@@ -32,7 +32,7 @@ function App() {
   const [textSize, setTextSize] = useState<'medium' | 'large'>('medium')
   const [smartColouring, setSmartColouring] = useState(true)
   const [opacity, setOpacity] = useState(0.9)
-  const [blurEnabled, setBlurEnabled] = useState(true)
+  const [blurEnabled, setBlurEnabled] = useState(false)
 
   const fontSize = textSize === 'large' ? '48px' : '42px'
   const labelSize = textSize === 'large' ? '12px' : '11px'
@@ -86,18 +86,14 @@ function App() {
     }
   }, [wpm])
 
-  const backgroundColor = blurEnabled
-    ? 'transparent'
-    : 'rgba(28, 28, 30, 0.92)'
-
-  console.log('blurEnabled:', blurEnabled, 'bg:', backgroundColor)
-
   return (
     <div
       className="h-[100px] flex flex-row items-center justify-center px-6 overflow-hidden select-none cursor-default overlay-drag"
       style={{
-        backgroundColor,
+        backgroundColor: blurEnabled ? 'transparent' : 'rgba(28, 28, 30, 0.92)',
         borderRadius: '18px',
+        border: '1px solid rgba(255, 255, 255, 0.08)',
+        boxShadow: '0 4px 12px rgba(0, 0, 0, 0.25)',
         fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, sans-serif",
         minWidth: textSize === 'large' ? '160px' : '145px',
         gap: '8px',

@@ -54,7 +54,7 @@ const defaultSettings: Settings = {
   display: {
     showOverlay: true,
     opacity: 0.9,
-    blur: true,
+    blur: false,
   },
   appearance: {
     smartColouring: true,
