@@ -122,29 +122,15 @@ function calculateWPMInternal(strokes: Keystroke[]): number {
 function calculateWPM(): WPMStats {
   const now = Date.now()
   const settings = getSettings()
-  
-  if (keystrokes.length === 0) {
+  const inactivityTimeout = settings.behaviour?.inactivityTimeout ?? 5000
+
+  if (now - lastKeypressTime > inactivityTimeout) {
+    keystrokes = []
     sessionStartTime = 0
     return { wpm: 0, charCount: 0, timeWindowMs: 0, lastKeyTime: 0 }
   }
-  
-  const inactivityTimeout = settings.behaviour?.inactivityTimeout ?? 5000
-  
-  if (now - lastKeypressTime > inactivityTimeout) {
-    const minKeystrokes = settings.behaviour?.minKeystrokes ?? 8
-    const finalWpm = keystrokes.length >= minKeystrokes ? calculateWPMInternal(keystrokes) : 0
-    
-    if (keystrokes.length >= minKeystrokes) {
-      stats.lifetime.totalWpm += finalWpm
-      stats.lifetime.totalRawWpm += finalWpm
-      stats.lifetime.totalSessions += 1
-      
-      stats.lifetime.highestWpm = Math.max(stats.lifetime.highestWpm, stats.session.highestWpm)
-      stats.lifetime.highestRawWpm = Math.max(stats.lifetime.highestRawWpm, stats.session.highestRawWpm)
-      stats.lifetime.highestAccuracy = Math.max(stats.lifetime.highestAccuracy, stats.session.highestAccuracy)
-    }
-    
-    keystrokes = []
+
+  if (keystrokes.length === 0) {
     sessionStartTime = 0
     return { wpm: 0, charCount: 0, timeWindowMs: 0, lastKeyTime: 0 }
   }

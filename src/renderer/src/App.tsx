@@ -84,22 +84,26 @@ function App() {
       let rawWpm = rawWpmRef.current
       let displayWpm = displayWpmRef.current
       
-      const isIdle = lastKeyTime > 0 && (now - lastKeyTime) > IDLE_THRESHOLD_MS
-      
-      if (isIdle) {
-        if (rawWpm > 0) {
-          rawWpm *= 0.92
-          if (rawWpm < 1) rawWpm = 0
-          rawWpmRef.current = rawWpm
-        }
-        
-        if (displayWpm > 0) {
-          displayWpm *= 0.92
-          if (displayWpm < 1) displayWpm = 0
-        }
+      if (rawWpm === 0) {
+        displayWpm = 0
       } else {
-        if (rawWpm > 0) {
-          displayWpm += (rawWpm - displayWpm) * 0.4
+        const isIdle = lastKeyTime > 0 && (now - lastKeyTime) > IDLE_THRESHOLD_MS
+        
+        if (isIdle) {
+          if (rawWpm > 0) {
+            rawWpm *= 0.92
+            if (rawWpm < 1) rawWpm = 0
+            rawWpmRef.current = rawWpm
+          }
+          
+          if (displayWpm > 0) {
+            displayWpm *= 0.92
+            if (displayWpm < 1) displayWpm = 0
+          }
+        } else {
+          if (rawWpm > 0) {
+            displayWpm += (rawWpm - displayWpm) * 0.4
+          }
         }
       }
       
@@ -112,7 +116,7 @@ function App() {
       const roundedWpm = Math.round(displayWpm)
       
       let currentColor = defaultColor
-      if (smartColouring && !isIdle && roundedWpm > 0) {
+      if (smartColouring && roundedWpm > 0) {
         const tier = getTier(roundedWpm)
         currentColor = getColorForTier(tier)
       }

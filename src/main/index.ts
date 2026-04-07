@@ -14,6 +14,7 @@ let mainWindow: BrowserWindow | null = null
 let tray: Tray | null = null
 let settingsWindow: BrowserWindow | null = null
 let wpmUpdateInterval: NodeJS.Timeout | null = null
+let inactivityResetInterval: NodeJS.Timeout | null = null
 let fadeInterval: NodeJS.Timeout | null = null
 let saveTimeout: NodeJS.Timeout | null = null
 let lastMenuBarWpm = 0
@@ -200,6 +201,7 @@ function createWindow() {
 
   mainWindow.on('closed', () => {
     stopWPMBroadcast()
+    stopInactivityResetLoop()
     if (fadeInterval) {
       clearInterval(fadeInterval)
       fadeInterval = null
@@ -461,6 +463,35 @@ function createTray() {
   })
 }
 
+function startInactivityResetLoop() {
+  if (inactivityResetInterval) return
+
+  inactivityResetInterval = setInterval(() => {
+    const settings = getSettings()
+    const stats = getWPM()
+
+    safeSend(mainWindow, 'wpm:update', {
+      ...stats,
+      smartColouring: settings.appearance.smartColouring,
+      wpmTextSize: settings.appearance.wpmTextSize,
+      colorRanges: settings.appearance.colorRanges,
+      opacity: settings.display.opacity,
+      blur: settings.display.blur
+    })
+
+    if (tray && settings.general.showMenuBarWpm) {
+      animateMenuBarWpm(stats.wpm)
+    }
+  }, 100)
+}
+
+function stopInactivityResetLoop() {
+  if (inactivityResetInterval) {
+    clearInterval(inactivityResetInterval)
+    inactivityResetInterval = null
+  }
+}
+
 app.whenReady().then(() => {
   app.dock.hide()
   
@@ -484,6 +515,7 @@ app.whenReady().then(() => {
   
   createTray()
   initTracking()
+  startInactivityResetLoop()
 })
 
 ipcMain.on('set-launch-at-login', (_, enabled: boolean) => {
