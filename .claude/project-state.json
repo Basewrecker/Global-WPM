@@ -1,0 +1,97 @@
+{
+  "project": "wpm-tracker",
+  "version": "0.1.2",
+  "lastUpdated": "2026-04-16",
+  "features": {
+    "keyboardHook": true,
+    "wpmCalculation": true,
+    "overlayWidget": true,
+    "overlayDraggable": true,
+    "overlayPositionPersisted": true,
+    "overlayAlwaysOnTop": true,
+    "overlayVisibleOnAllWorkspaces": true,
+    "smartColouring": true,
+    "customColorRanges": true,
+    "opacityControl": true,
+    "blurVibrancy": true,
+    "wpmTextSizeToggle": true,
+    "globalShortcut": true,
+    "trayIcon": true,
+    "menuBarWpm": true,
+    "launchAtLogin": true,
+    "lockOverlayToDesktop": true,
+    "settingsPersistence": true,
+    "resetAllSettings": true,
+    "settingsWindowGeneral": true,
+    "settingsWindowAppearance": true,
+    "settingsWindowBehaviour": false,
+    "settingsWindowTracking": false,
+    "settingsWindowAdvanced": false,
+    "sessionStats": false,
+    "statsDatabase": false,
+    "statsWindow": false,
+    "accuracyTracking": false,
+    "rawWpmTracking": false,
+    "debugMode": false,
+    "buildPipeline": false
+  },
+  "bugs": [
+    {
+      "id": "BUG-001",
+      "severity": "high",
+      "description": "getContextMenu called outside its defining scope in createTray()",
+      "location": "src/main/index.ts:575 and :655",
+      "effect": "ReferenceError at runtime when changing global shortcut or resetting settings via IPC"
+    },
+    {
+      "id": "BUG-002",
+      "severity": "medium",
+      "description": "setBlur missing from ElectronAPI TypeScript interface",
+      "location": "src/preload/index.ts:26-40",
+      "effect": "TypeScript compile error on window.electronAPI.setBlur() calls despite runtime working"
+    },
+    {
+      "id": "BUG-003",
+      "severity": "medium",
+      "description": "Behaviour tab settings not wired to IPC",
+      "location": "src/renderer/src/Settings.tsx — behaviour case",
+      "effect": "inactivityTimeout and minKeystrokes changes are lost on reload"
+    },
+    {
+      "id": "BUG-004",
+      "severity": "low",
+      "description": "Tracking tab toggles have no IPC handlers",
+      "location": "src/renderer/src/Settings.tsx — tracking case",
+      "effect": "trackAccuracy and trackRawWpm do nothing"
+    },
+    {
+      "id": "BUG-005",
+      "severity": "low",
+      "description": "Advanced debug mode has no effect",
+      "location": "src/renderer/src/Settings.tsx — advanced case",
+      "effect": "Toggle updates React state only, nothing in main process reads it"
+    },
+    {
+      "id": "BUG-006",
+      "severity": "low",
+      "description": "wpmCalculator.ts is dead code",
+      "location": "src/main/wpmCalculator.ts",
+      "effect": "Unused file, WPM logic lives in keyboardTracker.ts"
+    },
+    {
+      "id": "BUG-007",
+      "severity": "low",
+      "description": "Tray Stats menu item is a no-op",
+      "location": "src/main/index.ts — createTray()",
+      "effect": "click: () => {} placeholder, no stats window exists"
+    }
+  ],
+  "nextPriorities": [
+    "Fix BUG-001: move getContextMenu out of createTray() to module scope",
+    "Fix BUG-002: add setBlur to ElectronAPI interface in preload/index.ts",
+    "Wire Behaviour tab IPC: add set-inactivity-timeout and set-min-keystrokes channels",
+    "Wire Tracking tab IPC or remove toggles if features not planned",
+    "Implement stats persistence to stats.db",
+    "Build and test electron-builder distribution pipeline"
+  ]
+}
