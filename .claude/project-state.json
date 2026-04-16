@@ -1,7 +1,7 @@
 {
   "project": "wpm-tracker",
   "version": "0.1.2",
-  "lastUpdated": "2026-04-16",
+  "lastUpdated": "2026-04-16T00:00:00Z",
   "features": {
     "keyboardHook": true,
     "wpmCalculation": true,
@@ -24,7 +24,7 @@
     "resetAllSettings": true,
     "settingsWindowGeneral": true,
     "settingsWindowAppearance": true,
-    "settingsWindowBehaviour": false,
+    "settingsWindowBehaviour": true,
     "settingsWindowTracking": false,
     "settingsWindowAdvanced": false,
     "sessionStats": false,
@@ -37,25 +37,11 @@
   },
   "bugs": [
     {
-      "id": "BUG-001",
-      "severity": "high",
-      "description": "getContextMenu called outside its defining scope in createTray()",
-      "location": "src/main/index.ts:575 and :655",
-      "effect": "ReferenceError at runtime when changing global shortcut or resetting settings via IPC"
-    },
-    {
       "id": "BUG-002",
       "severity": "medium",
       "description": "setBlur missing from ElectronAPI TypeScript interface",
       "location": "src/preload/index.ts:26-40",
       "effect": "TypeScript compile error on window.electronAPI.setBlur() calls despite runtime working"
-    },
-    {
-      "id": "BUG-003",
-      "severity": "medium",
-      "description": "Behaviour tab settings not wired to IPC",
-      "location": "src/renderer/src/Settings.tsx — behaviour case",
-      "effect": "inactivityTimeout and minKeystrokes changes are lost on reload"
     },
     {
       "id": "BUG-004",
@@ -87,9 +73,7 @@
     }
   ],
   "nextPriorities": [
-    "Fix BUG-001: move getContextMenu out of createTray() to module scope",
     "Fix BUG-002: add setBlur to ElectronAPI interface in preload/index.ts",
-    "Wire Behaviour tab IPC: add set-inactivity-timeout and set-min-keystrokes channels",
     "Wire Tracking tab IPC or remove toggles if features not planned",
     "Implement stats persistence to stats.db",
     "Build and test electron-builder distribution pipeline"

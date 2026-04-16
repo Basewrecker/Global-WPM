@@ -407,56 +407,56 @@ function createSettingsWindow() {
   })
 }
 
+function getContextMenu() {
+  const isVisible = mainWindow && mainWindow.isVisible()
+  const shortcut = getSettings().general.globalShortcut
+
+  return Menu.buildFromTemplate([
+    {
+      label: isVisible ? 'Hide' : 'Show',
+      accelerator: shortcut,
+      click: () => {
+        if (!mainWindow) return
+
+        if (mainWindow.isVisible()) {
+          hideWindowAnimated()
+        } else {
+          showWindowAnimated()
+          mainWindow.focus()
+        }
+      }
+    },
+    { type: 'separator' },
+    {
+      label: 'Stats',
+      click: () => {}
+    },
+    {
+      label: 'Settings',
+      click: () => {
+        createSettingsWindow()
+      }
+    },
+    { type: 'separator' },
+    {
+      label: 'Quit',
+      click: () => process.exit(0)
+    }
+  ])
+}
+
 function createTray() {
   if (tray) {
     tray.destroy()
   }
-  
+
   const iconPath = join(__dirname, '../../public/trayTemplate.png')
   let trayIcon = nativeImage.createFromPath(iconPath)
-  
+
   trayIcon = trayIcon.resize({ width: 16, height: 16 })
   trayIcon.setTemplateImage(true)
-  
+
   tray = new Tray(trayIcon)
-
-  function getContextMenu() {
-    const isVisible = mainWindow && mainWindow.isVisible()
-    const shortcut = getSettings().general.globalShortcut
-
-    return Menu.buildFromTemplate([
-      {
-        label: isVisible ? 'Hide' : 'Show',
-        accelerator: shortcut,
-        click: () => {
-          if (!mainWindow) return
-
-          if (mainWindow.isVisible()) {
-            hideWindowAnimated()
-          } else {
-            showWindowAnimated()
-            mainWindow.focus()
-          }
-        }
-      },
-      { type: 'separator' },
-      {
-        label: 'Stats',
-        click: () => {}
-      },
-      {
-        label: 'Settings',
-        click: () => {
-          createSettingsWindow()
-        }
-      },
-      { type: 'separator' },
-      {
-        label: 'Quit',
-        click: () => process.exit(0)
-      }
-    ])
-  }
 
   tray.on('click', () => {
     tray.popUpContextMenu(getContextMenu())
@@ -565,6 +565,14 @@ ipcMain.handle('set-blur', (_, enabled: boolean) => {
 
 ipcMain.on('set-smart-colouring', (_, enabled: boolean) => {
   updateSettings({ appearance: { smartColouring: enabled } })
+})
+
+ipcMain.on('set-inactivity-timeout', (_, value: number) => {
+  updateSettings({ behaviour: { inactivityTimeout: value } })
+})
+
+ipcMain.on('set-min-keystrokes', (_, value: number) => {
+  updateSettings({ behaviour: { minKeystrokes: value } })
 })
 
 ipcMain.handle('set-global-shortcut', (_, shortcut: string) => {

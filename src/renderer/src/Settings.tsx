@@ -711,8 +711,14 @@ export default function Settings() {
         return (
           <div>
             <SectionTitle>Typing Detection</SectionTitle>
-            <NumberRow label="Inactivity Timeout (ms)" value={settings.behaviour.inactivityTimeout} min={2000} max={10000} onChange={(v) => update('behaviour', 'inactivityTimeout', v)} />
-            <NumberRow label="Minimum Keystrokes" value={settings.behaviour.minKeystrokes} min={1} max={50} onChange={(v) => update('behaviour', 'minKeystrokes', v)} />
+            <NumberRow label="Inactivity Timeout (ms)" value={settings.behaviour.inactivityTimeout} min={2000} max={10000} onChange={(v) => {
+              update('behaviour', 'inactivityTimeout', v)
+              window.electronAPI.setInactivityTimeout(v)
+            }} />
+            <NumberRow label="Minimum Keystrokes" value={settings.behaviour.minKeystrokes} min={1} max={50} onChange={(v) => {
+              update('behaviour', 'minKeystrokes', v)
+              window.electronAPI.setMinKeystrokes(v)
+            }} />
           </div>
         )
 

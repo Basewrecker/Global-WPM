@@ -29,6 +29,8 @@ export interface ElectronAPI {
   setWpmTextSize: (size: 'medium' | 'large') => void
   getColorRanges: () => Promise<{ low: string; mid: string; high: string; ultra: string } | null>
   setColorRanges: (ranges: { low: string; mid: string; high: string; ultra: string }) => void
+  setInactivityTimeout: (value: number) => void
+  setMinKeystrokes: (value: number) => void
   resetAllSettings: () => void
 }
 

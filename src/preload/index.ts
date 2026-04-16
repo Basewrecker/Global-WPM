@@ -36,6 +36,8 @@ export interface ElectronAPI {
   setWpmTextSize: (size: 'medium' | 'large') => void
   setColorRanges: (colorRanges: ColorRanges) => void
   getColorRanges: () => Promise<ColorRanges>
+  setInactivityTimeout: (value: number) => void
+  setMinKeystrokes: (value: number) => void
   resetAllSettings: () => void
 }
 
@@ -80,6 +82,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
   },
   getColorRanges: (): Promise<ColorRanges> => {
     return ipcRenderer.invoke('get-color-ranges')
+  },
+  setInactivityTimeout: (value: number) => {
+    ipcRenderer.send('set-inactivity-timeout', value)
+  },
+  setMinKeystrokes: (value: number) => {
+    ipcRenderer.send('set-min-keystrokes', value)
   },
   resetAllSettings: () => {
     ipcRenderer.send('reset-all-settings')
