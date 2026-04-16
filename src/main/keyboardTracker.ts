@@ -1,4 +1,4 @@
-import { uIOhook } from 'uiohook-napi'
+import { uIOhook, UiohookKey } from 'uiohook-napi'
 import { getSettings, updateSettings, Settings } from './settings'
 
 export interface Keystroke {
@@ -12,6 +12,35 @@ export interface WPMStats {
   timeWindowMs: number
   lastKeyTime: number
 }
+
+// Keycodes that count toward WPM: letters, digits, space, punctuation.
+// Shift+digit (! @ # $ % ^ & * ( )) shares the same keycode as the digit key.
+const TYPING_KEYCODES = new Set<number>([
+  // Letters a–z
+  UiohookKey.A, UiohookKey.B, UiohookKey.C, UiohookKey.D, UiohookKey.E,
+  UiohookKey.F, UiohookKey.G, UiohookKey.H, UiohookKey.I, UiohookKey.J,
+  UiohookKey.K, UiohookKey.L, UiohookKey.M, UiohookKey.N, UiohookKey.O,
+  UiohookKey.P, UiohookKey.Q, UiohookKey.R, UiohookKey.S, UiohookKey.T,
+  UiohookKey.U, UiohookKey.V, UiohookKey.W, UiohookKey.X, UiohookKey.Y,
+  UiohookKey.Z,
+  // Digits 0–9
+  UiohookKey[0], UiohookKey[1], UiohookKey[2], UiohookKey[3], UiohookKey[4],
+  UiohookKey[5], UiohookKey[6], UiohookKey[7], UiohookKey[8], UiohookKey[9],
+  // Space
+  UiohookKey.Space,
+  // Punctuation / special character keys (covers both unshifted and shifted)
+  UiohookKey.Backquote,    // ` ~
+  UiohookKey.Minus,        // - _
+  UiohookKey.Equal,        // = +
+  UiohookKey.BracketLeft,  // [ {
+  UiohookKey.BracketRight, // ] }
+  UiohookKey.Backslash,    // \ |
+  UiohookKey.Semicolon,    // ; :
+  UiohookKey.Quote,        // ' "
+  UiohookKey.Comma,        // , <
+  UiohookKey.Period,       // . >
+  UiohookKey.Slash,        // / ?
+])
 
 let keystrokes: Keystroke[] = []
 let sessionStartTime: number = 0
@@ -40,57 +69,20 @@ const stats = {
   },
 }
 
-function isTypingKey(key: string): boolean {
-  if (!key) return false
-
-  const k = key.toLowerCase()
-
-  if (k.length === 1) return true
-
-  if (
-    k.includes('arrow') ||
-    k === 'backspace' ||
-    k === 'enter' ||
-    k === ' '
-  ) {
-    return true
-  }
-
-  if (
-    k.includes('volume') ||
-    k.includes('brightness') ||
-    k.includes('media') ||
-    k.startsWith('f') ||
-    k === 'shift' ||
-    k === 'control' ||
-    k === 'alt' ||
-    k === 'meta' ||
-    k === 'capslock' ||
-    k === 'escape' ||
-    k === 'tab'
-  ) {
-    return false
-  }
-
-  return true
-}
-
 function handleKeyDown(event: { keycode: number; key?: string }) {
-  const key = event.key || `key${event.keycode}`
-  
-  if (!isTypingKey(key)) return
-  
+  if (!TYPING_KEYCODES.has(event.keycode)) return
+
   stats.session.keystrokes++
-  
+
   const now = Date.now()
   lastKeypressTime = now
-  
+
   if (sessionStartTime === 0) {
     sessionStartTime = now
   }
-  
+
   keystrokes.push({
-    key,
+    key: `key${event.keycode}`,
     timestamp: now
   })
 }
