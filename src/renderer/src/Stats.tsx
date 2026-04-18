@@ -76,7 +76,7 @@ export default function Stats() {
   const [stats, setStats] = useState({
     wpm: 0,
     accuracy: 0,
-    totalKeystrokes: 0,
+    totalstrokes: 0,
     backspaces: 0,
   })
 
@@ -97,7 +97,7 @@ export default function Stats() {
     }}>
       {/* Titlebar wrapper */}
       <div style={{
-        height: '60px',
+        height: '40px',
         background: 'rgba(30,30,30,0.9)',
         borderBottom: '1px solid rgba(255,255,255,0.05)',
         position: 'relative',
@@ -138,7 +138,7 @@ export default function Stats() {
           <div style={{
             display: 'flex',
             justifyContent: 'center',
-            padding: '24px 24px 0',
+            padding: '14px 24px 0',
           }}>
             <SegmentedControl
               value={activeView}
