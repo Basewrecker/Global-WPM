@@ -22,7 +22,7 @@ function SegmentedControl({ value, options, onChange }: {
             borderRadius: '4px',
             cursor: 'pointer',
             backgroundColor: value === option.value ? 'rgba(255,255,255,0.12)' : 'transparent',
-            color: value === option.value ? '#ffffff' : 'rgba(255,255,255,0.6)',
+            color: value === option.value ? '#ffffff' : 'rgba(255,255,255,0.5)',
             fontSize: '12px',
             fontWeight: value === option.value ? '500' : '400',
             transition: 'all 0.15s ease',
@@ -35,74 +35,36 @@ function SegmentedControl({ value, options, onChange }: {
   )
 }
 
-function ResetButton({ onClick }: { onClick: () => void }) {
-  return (
-    <button
-      onClick={onClick}
-      style={{
-        fontSize: '11px',
-        color: 'rgba(255,255,255,0.6)',
-        background: 'rgba(255,255,255,0.02)',
-        border: '1px solid rgba(255,255,255,0.06)',
-        borderRadius: '6px',
-        padding: '5px 10px',
-        cursor: 'pointer',
-        transition: 'all 0.15s ease',
-        display: 'block',
-        margin: '0 24px 20px auto',
-      }}
-      onMouseEnter={(e) => {
-        e.currentTarget.style.background = 'rgba(255,255,255,0.06)'
-        e.currentTarget.style.color = 'rgba(255,255,255,0.9)'
-      }}
-      onMouseLeave={(e) => {
-        e.currentTarget.style.background = 'rgba(255,255,255,0.02)'
-        e.currentTarget.style.color = 'rgba(255,255,255,0.6)'
-      }}
-    >
-      Reset Session
-    </button>
-  )
+const cardLabelStyle: React.CSSProperties = {
+  fontSize: '10px',
+  fontWeight: 500,
+  letterSpacing: '0.1em',
+  textTransform: 'uppercase',
+  color: 'rgba(255,255,255,0.28)',
 }
 
-function StatGrid({ items }: { items: { label: string; value: string | number }[] }) {
+const cardValueStyle: React.CSSProperties = {
+  fontSize: '26px',
+  fontWeight: 500,
+  color: 'rgba(255,255,255,0.88)',
+  lineHeight: 1,
+  fontVariantNumeric: 'tabular-nums',
+  letterSpacing: '-0.01em',
+}
+
+function StatCard({ label, value, fullWidth }: { label: string; value: string | number; fullWidth?: boolean }) {
   return (
     <div style={{
-      display: 'grid',
-      gridTemplateColumns: '1fr 1fr',
-      gap: '1px',
-      background: 'rgba(255,255,255,0.06)',
-      borderRadius: '10px',
-      overflow: 'hidden',
-      margin: '20px 24px',
+      padding: fullWidth ? '12px 16px' : '14px 16px',
+      background: 'transparent',
+      border: '1px solid rgba(255,255,255,0.09)',
+      borderRadius: '8px',
+      display: 'flex',
+      flexDirection: 'column',
+      gap: '6px',
     }}>
-      {items.map(({ label, value }) => (
-        <div key={label} style={{
-          padding: '18px 20px',
-          background: 'rgba(20,20,20,0.6)',
-          display: 'flex',
-          flexDirection: 'column',
-          gap: '6px',
-        }}>
-          <div style={{
-            fontSize: '11px',
-            fontWeight: 500,
-            letterSpacing: '0.05em',
-            textTransform: 'uppercase',
-            color: 'rgba(255,255,255,0.35)',
-          }}>
-            {label}
-          </div>
-          <div style={{
-            fontSize: '28px',
-            fontWeight: 600,
-            color: 'rgba(255,255,255,0.9)',
-            lineHeight: 1,
-          }}>
-            {value}
-          </div>
-        </div>
-      ))}
+      <div style={cardLabelStyle}>{label}</div>
+      <div style={cardValueStyle}>{value}</div>
     </div>
   )
 }
@@ -124,20 +86,6 @@ export default function Stats() {
     })
   }, [])
 
-  const sessionItems = [
-    { label: 'Current WPM', value: Math.round(stats.wpm) },
-    { label: 'Peak WPM', value: 0 },
-    { label: 'Total Keystrokes', value: stats.totalKeystrokes },
-    { label: 'Backspaces', value: stats.backspaces },
-  ]
-
-  const lifetimeItems = [
-    { label: 'All-time Peak WPM', value: 0 },
-    { label: 'Total Keystrokes', value: 0 },
-    { label: 'Total Sessions', value: 0 },
-    { label: 'Time Active', value: '00:00' },
-  ]
-
   return (
     <div className="frosted-glass" style={{
       height: '100vh',
@@ -147,18 +95,21 @@ export default function Stats() {
       flexDirection: 'column',
       color: 'rgba(255,255,255,0.9)',
     }}>
-      {/* Titlebar */}
+      {/* Titlebar wrapper */}
       <div style={{
         height: '60px',
         background: 'rgba(30,30,30,0.9)',
         borderBottom: '1px solid rgba(255,255,255,0.05)',
         position: 'relative',
       }}>
+        {/* Drag layer - lowest layer, covers full titlebar */}
         <div className="titlebar-drag" style={{
           position: 'absolute',
           inset: 0,
           zIndex: 1,
         }} />
+
+        {/* Title - only wraps content, doesn't cover full width */}
         <div style={{
           position: 'relative',
           zIndex: 2,
@@ -177,44 +128,136 @@ export default function Stats() {
 
       {/* Content */}
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
-        {/* Toggle */}
         <div style={{
           display: 'flex',
-          justifyContent: 'center',
-          padding: '20px 24px 0',
+          flexDirection: 'column',
+          height: '100%',
+          paddingTop: '8px',
         }}>
-          <SegmentedControl
-            value={activeView}
-            options={[
-              { label: 'This Session', value: 'session' },
-              { label: 'Lifetime', value: 'lifetime' },
-            ]}
-            onChange={(v) => {
-              const next = v as 'session' | 'lifetime'
-              if (next === activeView || isTransitioning) return
-              setIsTransitioning(true)
-              setActiveView(next)
-              setTimeout(() => {
-                setDisplayedView(next)
-                setIsTransitioning(false)
-              }, 120)
-            }}
-          />
-        </div>
+          {/* Toggle */}
+          <div style={{
+            display: 'flex',
+            justifyContent: 'center',
+            padding: '24px 24px 0',
+          }}>
+            <SegmentedControl
+              value={activeView}
+              options={[
+                { label: 'This Session', value: 'session' },
+                { label: 'Lifetime', value: 'lifetime' },
+              ]}
+              onChange={(v) => {
+                const next = v as 'session' | 'lifetime'
+                if (next === activeView || isTransitioning) return
+                setIsTransitioning(true)
+                setActiveView(next)
+                setTimeout(() => {
+                  setDisplayedView(next)
+                  setIsTransitioning(false)
+                }, 120)
+              }}
+            />
+          </div>
 
-        {/* Grid */}
-        <div style={{
-          opacity: isTransitioning ? 0 : 1,
-          transform: isTransitioning ? 'translateY(4px)' : 'translateY(0px)',
-          transition: 'opacity 120ms ease-out, transform 120ms ease-out',
-        }}>
-          <StatGrid items={displayedView === 'session' ? sessionItems : lifetimeItems} />
-        </div>
+          {/* Hero + Grid (transition wrapper — do not modify) */}
+          <div style={{
+            opacity: isTransitioning ? 0 : 1,
+            transform: isTransitioning ? 'translateY(4px)' : 'translateY(0px)',
+            transition: 'opacity 120ms ease-out, transform 120ms ease-out',
+          }}>
+            {/* Hero stat */}
+            <div style={{
+              padding: '18px 28px 0 28px',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '4px',
+            }}>
+              <div style={{
+                fontSize: '10px',
+                fontWeight: 500,
+                letterSpacing: '0.1em',
+                textTransform: 'uppercase',
+                color: 'rgba(255,255,255,0.28)',
+              }}>
+                {displayedView === 'session' ? 'Peak WPM' : 'All-Time Peak'}
+              </div>
+              <div style={{
+                fontSize: '60px',
+                fontWeight: 600,
+                lineHeight: 1,
+                color: 'rgba(255,255,255,0.95)',
+                fontVariantNumeric: 'tabular-nums',
+                letterSpacing: '-0.03em',
+              }}>
+                {displayedView === 'session' ? Math.round(stats.wpm) : 0}
+              </div>
+            </div>
 
-        {/* Reset */}
-        {activeView === 'session' && (
-          <ResetButton onClick={() => setStats({ wpm: 0, accuracy: 0, totalKeystrokes: 0, backspaces: 0 })} />
-        )}
+            {/* Session grid — Peak full-width, Keys + Backspaces */}
+            {displayedView === 'session' && (
+              <div style={{
+                display: 'grid',
+                gridTemplateColumns: '1fr 1fr',
+                gap: '8px',
+                margin: '14px 24px 0',
+              }}>
+
+                <StatCard label="Accuracy" value="0%" fullWidth />
+                <StatCard label="Average WPM" value={0} fullWidth />
+                <StatCard label="Keys" value={stats.totalKeystrokes} />
+                <StatCard label="Time Typed" value="00:00" />
+              </div>
+            )}
+
+            {/* Lifetime grid — 2×2 */}
+            {displayedView === 'lifetime' && (
+              <div style={{
+                display: 'grid',
+                gridTemplateColumns: '1fr 1fr',
+                gap: '8px',
+                margin: '14px 24px 0',
+              }}>
+                <StatCard label="Accuracy" value="0%" />
+                <StatCard label="Average WPM" value={0} />
+                <StatCard label="Sessions" value={0} />
+                <StatCard label="Time Typed" value="00:00" />
+              </div>
+            )}
+          </div>
+
+          {/* Reset */}
+          {activeView === 'session' && (
+            <div style={{
+              display: 'flex',
+              justifyContent: 'center',
+              padding: '16px 24px 20px',
+            }}>
+              <button
+                onClick={() => setStats({ wpm: 0, accuracy: 0, totalKeystrokes: 0, backspaces: 0 })}
+                style={{
+                  fontSize: '12px',
+                  color: 'rgba(255,255,255,0.5)',
+                  background: 'rgba(255,255,255,0.05)',
+                  border: '1px solid rgba(255,255,255,0.08)',
+                  borderRadius: '7px',
+                  padding: '7px 16px',
+                  cursor: 'pointer',
+                  transition: 'all 0.15s ease',
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = 'rgba(255,255,255,0.09)'
+                  e.currentTarget.style.color = 'rgba(255,255,255,0.85)'
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = 'rgba(255,255,255,0.05)'
+                  e.currentTarget.style.color = 'rgba(255,255,255,0.5)'
+                }}
+              >
+                Reset Session
+              </button>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   )
