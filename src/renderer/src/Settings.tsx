@@ -484,6 +484,12 @@ export default function Settings() {
   const [overlayOpacity, setOverlayOpacity] = useState(90)
   const [blurEnabled, setBlurEnabled] = useState(false)
   const [colorRanges, setColorRanges] = useState({ ...defaultColors })
+  const [sessionStats, setSessionStats] = useState({
+    wpm: 0,
+    accuracy: 0,
+    totalKeystrokes: 0,
+    backspaces: 0,
+  })
 
   useEffect(() => {
     window.electronAPI.getGlobalShortcut().then((shortcut) => {
@@ -734,6 +740,27 @@ export default function Settings() {
             </SettingRow>
             <SettingRow label="Track Raw WPM">
               <Toggle checked={settings.tracking.trackRawWpm} onChange={(v) => update('tracking', 'trackRawWpm', v)} />
+            </SettingRow>
+            <SectionTitle>Session Stats</SectionTitle>
+            <SettingRow label="WPM">
+              <span style={{ fontSize: '13px', color: 'rgba(255,255,255,0.9)', fontWeight: 500 }}>
+                {sessionStats.wpm}
+              </span>
+            </SettingRow>
+            <SettingRow label="Accuracy (%)">
+              <span style={{ fontSize: '13px', color: 'rgba(255,255,255,0.9)', fontWeight: 500 }}>
+                {sessionStats.accuracy}
+              </span>
+            </SettingRow>
+            <SettingRow label="Total Keystrokes">
+              <span style={{ fontSize: '13px', color: 'rgba(255,255,255,0.9)', fontWeight: 500 }}>
+                {sessionStats.totalKeystrokes}
+              </span>
+            </SettingRow>
+            <SettingRow label="Backspaces">
+              <span style={{ fontSize: '13px', color: 'rgba(255,255,255,0.9)', fontWeight: 500 }}>
+                {sessionStats.backspaces}
+              </span>
             </SettingRow>
           </div>
         )
