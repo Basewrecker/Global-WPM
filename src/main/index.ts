@@ -25,8 +25,8 @@ let hasSavedPosition = false
 
 const SETTINGS_WIDTH = 780
 const SETTINGS_HEIGHT = 560
-const STATS_WIDTH = 400
-const STATS_HEIGHT = 320
+const STATS_WIDTH = 480
+const STATS_HEIGHT = 420
 
 const WINDOW_WIDTH = 145
 const WINDOW_HEIGHT = 100
