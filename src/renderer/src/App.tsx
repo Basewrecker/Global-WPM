@@ -30,6 +30,7 @@ function App() {
   const rawWpmRef = useRef(0)
   const displayWpmRef = useRef(0)
   const lastKeyTimeRef = useRef(0)
+  const blurRef = useRef(false)
   const colorRangesRef = useRef<WPMStats['colorRanges']>({
     low: '#ef4444',
     mid: '#eab308',
@@ -49,7 +50,11 @@ function App() {
       setTextSize(stats.wpmTextSize || 'medium')
       setSmartColouring(stats.smartColouring)
       setOpacity(stats.opacity ?? 0.9)
-      setBlurEnabled(stats.blur ?? false)
+      const nextBlur = stats.blur ?? false
+      if (nextBlur !== blurRef.current) {
+        blurRef.current = nextBlur
+        setBlurEnabled(nextBlur)
+      }
       if (stats.colorRanges) {
         colorRangesRef.current = stats.colorRanges
       }

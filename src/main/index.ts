@@ -138,7 +138,9 @@ function setTopRightPosition() {
 function createWindow() {
   const savedBounds = store.get('overlayBounds') as { x: number; y: number } | null
   hasSavedPosition = savedBounds !== null && typeof savedBounds.x === 'number' && typeof savedBounds.y === 'number'
-  
+
+  const initSettings = getSettings()
+
   mainWindow = new BrowserWindow({
     width: WINDOW_WIDTH,
     height: WINDOW_HEIGHT,
@@ -162,6 +164,8 @@ function createWindow() {
       contextIsolation: true,
     },
     backgroundColor: '#00000000',
+    vibrancy: initSettings.display.blur ? 'under-window' : undefined,
+    visualEffectState: 'active',
   })
 
   mainWindow.setMovable(true)
@@ -504,9 +508,6 @@ app.whenReady().then(() => {
   
   if (mainWindow && !mainWindow.isDestroyed()) {
     mainWindow.setOpacity(settings.display.opacity)
-    if (settings.display.blur) {
-      mainWindow.setVibrancy('under-window')
-    }
     mainWindow.setVisibleOnAllWorkspaces(!settings.general.lockOverlayToDesktop, { visibleOnFullScreen: !settings.general.lockOverlayToDesktop })
     if (!settings.display.showOverlay) {
       mainWindow.hide()
@@ -560,7 +561,6 @@ ipcMain.handle('set-blur', (_, enabled: boolean) => {
   } else {
     mainWindow.setVibrancy(undefined)
   }
-  mainWindow.setBackgroundColor('#00000000')
 })
 
 ipcMain.on('set-smart-colouring', (_, enabled: boolean) => {

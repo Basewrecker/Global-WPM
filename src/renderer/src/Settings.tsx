@@ -14,6 +14,7 @@ interface Settings {
   display: {
     showOverlay: boolean
     opacity: number
+    blur: boolean
   }
   appearance: {
     smartColouring: boolean
@@ -42,6 +43,7 @@ const defaultSettings: Settings = {
   display: {
     showOverlay: true,
     opacity: 0.9,
+    blur: false,
   },
   appearance: {
     smartColouring: true,
@@ -480,7 +482,7 @@ export default function Settings() {
   const [activeTab, setActiveTab] = useState<TabId>('general')
   const [hoveredTab, setHoveredTab] = useState<TabId | null>(null)
   const [overlayOpacity, setOverlayOpacity] = useState(90)
-  const [blurEnabled, setBlurEnabled] = useState(true)
+  const [blurEnabled, setBlurEnabled] = useState(false)
   const [colorRanges, setColorRanges] = useState({ ...defaultColors })
 
   useEffect(() => {
@@ -495,6 +497,7 @@ export default function Settings() {
         setColorRanges(ranges)
       }
     })
+    setBlurEnabled(settings.display.blur)
   }, [])
 
   const update = <K extends keyof Settings>(section: K, key: keyof Settings[K], value: Settings[K][keyof Settings[K]]) => {

@@ -29,6 +29,7 @@ export interface ElectronAPI {
   setShowMenuBarWpm: (enabled: boolean) => void
   setShowOverlay: (enabled: boolean) => void
   setOpacity: (opacity: number) => void
+  setBlur: (enabled: boolean) => void
   setSmartColouring: (enabled: boolean) => void
   setGlobalShortcut: (shortcut: string) => Promise<boolean>
   getGlobalShortcut: () => Promise<string>
