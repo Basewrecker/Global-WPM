@@ -47,6 +47,15 @@ let sessionStartTime: number = 0
 let lastKeypressTime: number = 0
 let isHookRunning = false
 
+let sessionBackspaces: number = 0
+let totalActiveMs: number = 0
+let sessionWallStart: number = 0
+
+// Snapshot of what was last committed to lifetime, for delta calculations
+let snapshotKeystrokes: number = 0
+let snapshotBackspaces: number = 0
+let snapshotActiveMs: number = 0
+
 const ROLLING_WINDOW_MS = 10000
 const MIN_TIME_SEC = 1.5
 
@@ -70,16 +79,26 @@ const stats = {
 }
 
 function handleKeyDown(event: { keycode: number; key?: string }) {
+  const now = Date.now()
+
+  if (event.keycode === UiohookKey.Backspace) {
+    sessionBackspaces++
+    return
+  }
+
   if (!TYPING_KEYCODES.has(event.keycode)) return
 
-  stats.session.keystrokes++
+  const settings = getSettings()
+  const inactivityMs = settings.behaviour?.inactivityTimeout ?? 3500
+  if (lastKeypressTime > 0 && now - lastKeypressTime < inactivityMs) {
+    totalActiveMs += now - lastKeypressTime
+  }
 
-  const now = Date.now()
+  stats.session.keystrokes++
   lastKeypressTime = now
 
-  if (sessionStartTime === 0) {
-    sessionStartTime = now
-  }
+  if (sessionWallStart === 0) sessionWallStart = now
+  if (sessionStartTime === 0) sessionStartTime = now
 
   keystrokes.push({
     key: `key${event.keycode}`,
@@ -162,15 +181,92 @@ function calculateWPM(): WPMStats {
   }
 }
 
+export interface SessionStats {
+  peakWpm: number
+  accuracy: number | null
+  totalKeystrokes: number
+  backspaces: number
+  avgWpm: number
+  timeTypedMs: number
+}
+
+export interface SessionSummary {
+  peakWpm: number
+  totalKeystrokes: number
+  totalBackspaces: number
+  totalActiveMs: number
+  isNewSession: boolean
+}
+
+export function getSessionStats(): SessionStats {
+  const total = stats.session.keystrokes
+  const backspaces = sessionBackspaces
+  const accuracy = total >= 10
+    ? Math.round((total / (total + backspaces)) * 100)
+    : null
+
+  let avgWpm = 0
+  if (totalActiveMs > 0 && total > 0) {
+    avgWpm = Math.round((total / 5) / (totalActiveMs / 60000))
+  }
+
+  return {
+    peakWpm: stats.session.highestWpm,
+    accuracy,
+    totalKeystrokes: total,
+    backspaces,
+    avgWpm,
+    timeTypedMs: totalActiveMs,
+  }
+}
+
+export function finalizeSession(): SessionSummary {
+  const isNewSession = snapshotKeystrokes === 0
+  const summary: SessionSummary = {
+    peakWpm: stats.session.highestWpm,
+    totalKeystrokes: stats.session.keystrokes - snapshotKeystrokes,
+    totalBackspaces: sessionBackspaces - snapshotBackspaces,
+    totalActiveMs: totalActiveMs - snapshotActiveMs,
+    isNewSession,
+  }
+  snapshotKeystrokes = stats.session.keystrokes
+  snapshotBackspaces = sessionBackspaces
+  snapshotActiveMs = totalActiveMs
+  return summary
+}
+
+export function resetSession(): void {
+  stats.session.highestWpm = 0
+  stats.session.highestRawWpm = 0
+  stats.session.highestAccuracy = 0
+  stats.session.keystrokes = 0
+  stats.session.startTime = Date.now()
+  sessionBackspaces = 0
+  sessionWallStart = 0
+  totalActiveMs = 0
+  snapshotKeystrokes = 0
+  snapshotBackspaces = 0
+  snapshotActiveMs = 0
+  keystrokes = []
+  sessionStartTime = 0
+  lastKeypressTime = 0
+}
+
 export function startTracking(): void {
   if (isHookRunning) {
     return
   }
-  
+
   keystrokes = []
   sessionStartTime = 0
   lastKeypressTime = 0
-  
+  sessionBackspaces = 0
+  sessionWallStart = 0
+  totalActiveMs = 0
+  snapshotKeystrokes = 0
+  snapshotBackspaces = 0
+  snapshotActiveMs = 0
+
   try {
     uIOhook.on('keydown', handleKeyDown)
     uIOhook.on('error', handleError)

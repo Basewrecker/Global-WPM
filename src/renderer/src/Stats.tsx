@@ -69,21 +69,41 @@ function StatCard({ label, value, fullWidth }: { label: string; value: string | 
   )
 }
 
+function formatTime(ms: number): string {
+  const total = Math.floor(ms / 1000)
+  const minutes = Math.floor(total / 60)
+  const seconds = total % 60
+  return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`
+}
+
 export default function Stats() {
   const [activeView, setActiveView] = useState<'session' | 'lifetime'>('session')
   const [displayedView, setDisplayedView] = useState<'session' | 'lifetime'>('session')
   const [isTransitioning, setIsTransitioning] = useState(false)
   const [stats, setStats] = useState({
-    wpm: 0,
-    accuracy: 0,
-    totalstrokes: 0,
+    peakWpm: 0,
+    accuracy: null as number | null,
+    totalKeystrokes: 0,
     backspaces: 0,
+    avgWpm: 0,
+    timeTypedMs: 0,
+  })
+  const [lifetimeStats, setLifetimeStats] = useState({
+    peakWpm: 0,
+    accuracy: null as number | null,
+    avgWpm: 0,
+    sessions: 0,
+    timeTypedMs: 0,
   })
 
   useEffect(() => {
-    window.electronAPI.getSessionStats().then((result) => {
-      setStats(result)
-    })
+    const load = () => {
+      window.electronAPI.getSessionStats().then(setStats)
+      window.electronAPI.getLifetimeStats().then(setLifetimeStats)
+    }
+    load()
+    const interval = setInterval(load, 1000)
+    return () => clearInterval(interval)
   }, [])
 
   return (
@@ -189,7 +209,7 @@ export default function Stats() {
                 fontVariantNumeric: 'tabular-nums',
                 letterSpacing: '-0.03em',
               }}>
-                {displayedView === 'session' ? Math.round(stats.wpm) : 0}
+                {displayedView === 'session' ? stats.peakWpm : lifetimeStats.peakWpm}
               </div>
             </div>
 
@@ -202,10 +222,10 @@ export default function Stats() {
                 margin: '14px 24px 0',
               }}>
 
-                <StatCard label="Accuracy" value="0%" fullWidth />
-                <StatCard label="Average WPM" value={0} fullWidth />
+                <StatCard label="Accuracy" value={stats.accuracy !== null ? `${stats.accuracy}%` : '—'} fullWidth />
+                <StatCard label="Average WPM" value={stats.avgWpm} fullWidth />
                 <StatCard label="Keys" value={stats.totalKeystrokes} />
-                <StatCard label="Time Typed" value="00:00" />
+                <StatCard label="Time Typed" value={formatTime(stats.timeTypedMs)} />
               </div>
             )}
 
@@ -217,10 +237,10 @@ export default function Stats() {
                 gap: '8px',
                 margin: '14px 24px 0',
               }}>
-                <StatCard label="Accuracy" value="0%" />
-                <StatCard label="Average WPM" value={0} />
-                <StatCard label="Sessions" value={0} />
-                <StatCard label="Time Typed" value="00:00" />
+                <StatCard label="Accuracy" value={lifetimeStats.accuracy !== null ? `${lifetimeStats.accuracy}%` : '—'} />
+                <StatCard label="Average WPM" value={lifetimeStats.avgWpm} />
+                <StatCard label="Sessions" value={lifetimeStats.sessions} />
+                <StatCard label="Time Typed" value={formatTime(lifetimeStats.timeTypedMs)} />
               </div>
             )}
           </div>
@@ -233,7 +253,10 @@ export default function Stats() {
               padding: '16px 24px 20px',
             }}>
               <button
-                onClick={() => setStats({ wpm: 0, accuracy: 0, totalKeystrokes: 0, backspaces: 0 })}
+                onClick={() => {
+                  window.electronAPI.resetSession()
+                  setStats({ peakWpm: 0, accuracy: null, totalKeystrokes: 0, backspaces: 0, avgWpm: 0, timeTypedMs: 0 })
+                }}
                 style={{
                   fontSize: '12px',
                   color: 'rgba(255,255,255,0.5)',

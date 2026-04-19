@@ -1,6 +1,6 @@
 import { app, BrowserWindow, screen, Tray, Menu, nativeImage, ipcMain, globalShortcut } from 'electron'
 import { join } from 'path'
-import { initTracking, stopTracking, getWPM } from './keyboardTracker'
+import { initTracking, stopTracking, getWPM, getSessionStats as getTrackerSessionStats, resetSession, finalizeSession } from './keyboardTracker'
 import { getSettings, updateSettings } from './settings'
 import Store from 'electron-store'
 
@@ -40,6 +40,41 @@ const store = new Store({
     overlayBounds: null as { x: number; y: number } | null
   }
 })
+
+interface LifetimeData {
+  peakWpm: number
+  totalKeystrokes: number
+  totalBackspaces: number
+  totalActiveMs: number
+  sessions: number
+}
+
+const lifetimeStore = new Store({
+  name: 'lifetime-stats',
+  defaults: {
+    data: { peakWpm: 0, totalKeystrokes: 0, totalBackspaces: 0, totalActiveMs: 0, sessions: 0 } as LifetimeData
+  }
+})
+
+function saveSessionToLifetime() {
+  const summary = finalizeSession()
+  console.log('[LIFETIME] finalizeSession() returned:', JSON.stringify(summary))
+  if (summary.totalKeystrokes === 0 && summary.totalActiveMs === 0) {
+    console.log('[LIFETIME] early exit — nothing to save')
+    return
+  }
+
+  const prev = lifetimeStore.get('data') as LifetimeData
+  const next = {
+    peakWpm: Math.max(prev.peakWpm, summary.peakWpm),
+    totalKeystrokes: prev.totalKeystrokes + summary.totalKeystrokes,
+    totalBackspaces: prev.totalBackspaces + summary.totalBackspaces,
+    totalActiveMs: prev.totalActiveMs + summary.totalActiveMs,
+    sessions: prev.sessions + (summary.isNewSession ? 1 : 0),
+  }
+  lifetimeStore.set('data', next)
+  console.log('[LIFETIME] saved to store:', JSON.stringify(next))
+}
 
 function safeSend(win: BrowserWindow | null, channel: string, data?: unknown) {
   try {
@@ -450,6 +485,7 @@ function createStatsWindow() {
   statsWindow.loadURL(statsUrl)
 
   statsWindow.on('closed', () => {
+    saveSessionToLifetime()
     statsWindow = null
   })
 }
@@ -638,13 +674,31 @@ ipcMain.handle('get-color-ranges', () => {
 })
 
 ipcMain.handle('get-session-stats', () => {
-  const wpmStats = getWPM()
+  return getTrackerSessionStats()
+})
+
+ipcMain.handle('get-lifetime-stats', () => {
+  console.log('[LIFETIME] get-lifetime-stats called, store:', JSON.stringify(lifetimeStore.store))
+  const data = lifetimeStore.get('data') as LifetimeData
+  const total = data.totalKeystrokes
+  const backspaces = data.totalBackspaces
+  const accuracy = total >= 10
+    ? Math.round((total / (total + backspaces)) * 100)
+    : null
+  const avgWpm = data.totalActiveMs > 0 && total > 0
+    ? Math.round((total / 5) / (data.totalActiveMs / 60000))
+    : 0
   return {
-    wpm: wpmStats.wpm,
-    accuracy: 0,
-    totalKeystrokes: wpmStats.charCount,
-    backspaces: 0,
+    peakWpm: data.peakWpm,
+    accuracy,
+    avgWpm,
+    sessions: data.sessions,
+    timeTypedMs: data.totalActiveMs,
   }
+})
+
+ipcMain.on('reset-session', () => {
+  resetSession()
 })
 
 ipcMain.on('set-color-ranges', (_, colorRanges) => {
@@ -728,6 +782,7 @@ app.on('activate', () => {
 })
 
 app.on('will-quit', () => {
+  saveSessionToLifetime()
   unregisterShortcut()
 })
 

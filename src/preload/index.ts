@@ -40,7 +40,9 @@ export interface ElectronAPI {
   setInactivityTimeout: (value: number) => void
   setMinKeystrokes: (value: number) => void
   resetAllSettings: () => void
-  getSessionStats: () => Promise<{ wpm: number; accuracy: number; totalKeystrokes: number; backspaces: number }>
+  getSessionStats: () => Promise<{ peakWpm: number; accuracy: number | null; totalKeystrokes: number; backspaces: number; avgWpm: number; timeTypedMs: number }>
+  getLifetimeStats: () => Promise<{ peakWpm: number; accuracy: number | null; avgWpm: number; sessions: number; timeTypedMs: number }>
+  resetSession: () => void
 }
 
 contextBridge.exposeInMainWorld('electronAPI', {
@@ -96,5 +98,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
   },
   getSessionStats: () => {
     return ipcRenderer.invoke('get-session-stats')
+  },
+  getLifetimeStats: () => {
+    return ipcRenderer.invoke('get-lifetime-stats')
+  },
+  resetSession: () => {
+    ipcRenderer.send('reset-session')
   },
 })
