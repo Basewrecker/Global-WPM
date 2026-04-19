@@ -29,6 +29,7 @@ export interface ElectronAPI {
   setShowMenuBarWpm: (enabled: boolean) => void
   setShowOverlay: (enabled: boolean) => void
   setOpacity: (opacity: number) => void
+  setBlur: (enabled: boolean) => void
   setSmartColouring: (enabled: boolean) => void
   setGlobalShortcut: (shortcut: string) => Promise<boolean>
   getGlobalShortcut: () => Promise<string>
@@ -39,6 +40,7 @@ export interface ElectronAPI {
   setInactivityTimeout: (value: number) => void
   setMinKeystrokes: (value: number) => void
   resetAllSettings: () => void
+  getSessionStats: () => Promise<{ wpm: number; accuracy: number; totalKeystrokes: number; backspaces: number }>
 }
 
 contextBridge.exposeInMainWorld('electronAPI', {
@@ -91,5 +93,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   },
   resetAllSettings: () => {
     ipcRenderer.send('reset-all-settings')
+  },
+  getSessionStats: () => {
+    return ipcRenderer.invoke('get-session-stats')
   },
 })

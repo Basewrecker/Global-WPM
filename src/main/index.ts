@@ -13,6 +13,7 @@ process.env.VITE_PUBLIC = process.env.VITE_DEV_SERVER_URL
 let mainWindow: BrowserWindow | null = null
 let tray: Tray | null = null
 let settingsWindow: BrowserWindow | null = null
+let statsWindow: BrowserWindow | null = null
 let wpmUpdateInterval: NodeJS.Timeout | null = null
 let inactivityResetInterval: NodeJS.Timeout | null = null
 let fadeInterval: NodeJS.Timeout | null = null
@@ -24,6 +25,8 @@ let hasSavedPosition = false
 
 const SETTINGS_WIDTH = 780
 const SETTINGS_HEIGHT = 560
+const STATS_WIDTH = 480
+const STATS_HEIGHT = 460
 
 const WINDOW_WIDTH = 145
 const WINDOW_HEIGHT = 100
@@ -138,7 +141,9 @@ function setTopRightPosition() {
 function createWindow() {
   const savedBounds = store.get('overlayBounds') as { x: number; y: number } | null
   hasSavedPosition = savedBounds !== null && typeof savedBounds.x === 'number' && typeof savedBounds.y === 'number'
-  
+
+  const initSettings = getSettings()
+
   mainWindow = new BrowserWindow({
     width: WINDOW_WIDTH,
     height: WINDOW_HEIGHT,
@@ -162,6 +167,8 @@ function createWindow() {
       contextIsolation: true,
     },
     backgroundColor: '#00000000',
+    vibrancy: initSettings.display.blur ? 'under-window' : undefined,
+    visualEffectState: 'active',
   })
 
   mainWindow.setMovable(true)
@@ -407,6 +414,46 @@ function createSettingsWindow() {
   })
 }
 
+function createStatsWindow() {
+  if (statsWindow && !statsWindow.isDestroyed()) {
+    statsWindow.focus()
+    return
+  }
+
+  const { width, height } = screen.getPrimaryDisplay().workAreaSize
+
+  statsWindow = new BrowserWindow({
+    width: STATS_WIDTH,
+    height: STATS_HEIGHT,
+    x: Math.round((width - STATS_WIDTH) / 2),
+    y: Math.round((height - STATS_HEIGHT) / 2),
+    frame: false,
+    titleBarStyle: 'hiddenInset',
+    resizable: false,
+    minimizable: false,
+    maximizable: false,
+    show: true,
+    vibrancy: 'sidebar',
+    visualEffectState: 'active',
+    backgroundMaterial: 'sidebar',
+    webPreferences: {
+      preload,
+      nodeIntegration: false,
+      contextIsolation: true,
+    },
+    backgroundColor: '#00000000',
+  })
+
+  const baseUrl = process.env.VITE_DEV_SERVER_URL || 'http://localhost:5173'
+  const statsUrl = baseUrl.endsWith('/') ? `${baseUrl}#/stats` : `${baseUrl}/#/stats`
+
+  statsWindow.loadURL(statsUrl)
+
+  statsWindow.on('closed', () => {
+    statsWindow = null
+  })
+}
+
 function getContextMenu() {
   const isVisible = mainWindow && mainWindow.isVisible()
   const shortcut = getSettings().general.globalShortcut
@@ -429,7 +476,7 @@ function getContextMenu() {
     { type: 'separator' },
     {
       label: 'Stats',
-      click: () => {}
+      click: () => { createStatsWindow() }
     },
     {
       label: 'Settings',
@@ -504,9 +551,6 @@ app.whenReady().then(() => {
   
   if (mainWindow && !mainWindow.isDestroyed()) {
     mainWindow.setOpacity(settings.display.opacity)
-    if (settings.display.blur) {
-      mainWindow.setVibrancy('under-window')
-    }
     mainWindow.setVisibleOnAllWorkspaces(!settings.general.lockOverlayToDesktop, { visibleOnFullScreen: !settings.general.lockOverlayToDesktop })
     if (!settings.display.showOverlay) {
       mainWindow.hide()
@@ -560,7 +604,6 @@ ipcMain.handle('set-blur', (_, enabled: boolean) => {
   } else {
     mainWindow.setVibrancy(undefined)
   }
-  mainWindow.setBackgroundColor('#00000000')
 })
 
 ipcMain.on('set-smart-colouring', (_, enabled: boolean) => {
@@ -592,6 +635,16 @@ ipcMain.handle('get-global-shortcut', () => {
 
 ipcMain.handle('get-color-ranges', () => {
   return getSettings().appearance.colorRanges
+})
+
+ipcMain.handle('get-session-stats', () => {
+  const wpmStats = getWPM()
+  return {
+    wpm: wpmStats.wpm,
+    accuracy: 0,
+    totalKeystrokes: wpmStats.charCount,
+    backspaces: 0,
+  }
 })
 
 ipcMain.on('set-color-ranges', (_, colorRanges) => {

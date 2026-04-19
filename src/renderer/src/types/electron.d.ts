@@ -32,6 +32,7 @@ export interface ElectronAPI {
   setInactivityTimeout: (value: number) => void
   setMinKeystrokes: (value: number) => void
   resetAllSettings: () => void
+  getSessionStats: () => Promise<{ wpm: number; accuracy: number; totalKeystrokes: number; backspaces: number }>
 }
 
 declare global {
