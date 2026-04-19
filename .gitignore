@@ -7,4 +7,4 @@ build
 *.app
 .DS_Store
 .claude/
-AGENTS.MD
+AGENTS.md

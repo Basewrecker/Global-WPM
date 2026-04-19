@@ -10,6 +10,7 @@ interface Settings {
     showMenuBarWpm: boolean
     globalShortcut: string
     lockOverlayToDesktop: boolean
+    trackingEnabled: boolean
   }
   display: {
     showOverlay: boolean
@@ -39,6 +40,7 @@ const defaultSettings: Settings = {
     showMenuBarWpm: false,
     globalShortcut: DEFAULT_SHORTCUT,
     lockOverlayToDesktop: false,
+    trackingEnabled: true,
   },
   display: {
     showOverlay: true,
@@ -483,6 +485,7 @@ export default function Settings() {
   const [hoveredTab, setHoveredTab] = useState<TabId | null>(null)
   const [overlayOpacity, setOverlayOpacity] = useState(90)
   const [blurEnabled, setBlurEnabled] = useState(false)
+  const [trackingEnabled, setTrackingEnabled] = useState(true)
   const [colorRanges, setColorRanges] = useState({ ...defaultColors })
   const [sessionStats, setSessionStats] = useState({
     wpm: 0,
@@ -532,6 +535,12 @@ export default function Settings() {
               <Toggle checked={settings.general.showMenuBarWpm} onChange={(v) => {
                 update('general', 'showMenuBarWpm', v)
                 window.electronAPI.setShowMenuBarWpm(v)
+              }} />
+            </SettingRow>
+            <SettingRow label="Enable Tracking">
+              <Toggle checked={trackingEnabled} onChange={(v) => {
+                setTrackingEnabled(v)
+                window.electronAPI.setTrackingEnabled(v)
               }} />
             </SettingRow>
             <ShortcutRow
@@ -740,27 +749,6 @@ export default function Settings() {
             </SettingRow>
             <SettingRow label="Track Raw WPM">
               <Toggle checked={settings.tracking.trackRawWpm} onChange={(v) => update('tracking', 'trackRawWpm', v)} />
-            </SettingRow>
-            <SectionTitle>Session Stats</SectionTitle>
-            <SettingRow label="WPM">
-              <span style={{ fontSize: '13px', color: 'rgba(255,255,255,0.9)', fontWeight: 500 }}>
-                {sessionStats.wpm}
-              </span>
-            </SettingRow>
-            <SettingRow label="Accuracy (%)">
-              <span style={{ fontSize: '13px', color: 'rgba(255,255,255,0.9)', fontWeight: 500 }}>
-                {sessionStats.accuracy}
-              </span>
-            </SettingRow>
-            <SettingRow label="Total Keystrokes">
-              <span style={{ fontSize: '13px', color: 'rgba(255,255,255,0.9)', fontWeight: 500 }}>
-                {sessionStats.totalKeystrokes}
-              </span>
-            </SettingRow>
-            <SettingRow label="Backspaces">
-              <span style={{ fontSize: '13px', color: 'rgba(255,255,255,0.9)', fontWeight: 500 }}>
-                {sessionStats.backspaces}
-              </span>
             </SettingRow>
           </div>
         )

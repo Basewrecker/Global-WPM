@@ -1,6 +1,6 @@
 import { app, BrowserWindow, screen, Tray, Menu, nativeImage, ipcMain, globalShortcut } from 'electron'
 import { join } from 'path'
-import { initTracking, stopTracking, getWPM, getSessionStats as getTrackerSessionStats, resetSession, finalizeSession, MIN_SESSION_KEYS, MIN_SESSION_MS } from './keyboardTracker'
+import { initTracking, startTracking, stopTracking, getWPM, getSessionStats as getTrackerSessionStats, resetSession, finalizeSession, MIN_SESSION_KEYS, MIN_SESSION_MS } from './keyboardTracker'
 import { getSettings, updateSettings } from './settings'
 import Store from 'electron-store'
 
@@ -603,7 +603,19 @@ app.whenReady().then(() => {
   
   createTray()
   initTracking()
+  if (!settings.general.trackingEnabled) {
+    stopTracking()
+  }
   startInactivityResetLoop()
+})
+
+ipcMain.on('set-tracking-enabled', (_, enabled: boolean) => {
+  updateSettings({ general: { trackingEnabled: enabled } })
+  if (enabled) {
+    startTracking()
+  } else {
+    stopTracking()
+  }
 })
 
 ipcMain.on('set-launch-at-login', (_, enabled: boolean) => {

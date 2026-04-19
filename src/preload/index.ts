@@ -39,6 +39,7 @@ export interface ElectronAPI {
   getColorRanges: () => Promise<ColorRanges>
   setInactivityTimeout: (value: number) => void
   setMinKeystrokes: (value: number) => void
+  setTrackingEnabled: (enabled: boolean) => void
   resetAllSettings: () => void
   getSessionStats: () => Promise<{ peakWpm: number; accuracy: number | null; totalKeystrokes: number; backspaces: number; avgWpm: number; timeTypedMs: number }>
   getLifetimeStats: () => Promise<{ peakWpm: number; accuracy: number | null; avgWpm: number; sessions: number; timeTypedMs: number }>
@@ -92,6 +93,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   },
   setMinKeystrokes: (value: number) => {
     ipcRenderer.send('set-min-keystrokes', value)
+  },
+  setTrackingEnabled: (enabled: boolean) => {
+    ipcRenderer.send('set-tracking-enabled', enabled)
   },
   resetAllSettings: () => {
     ipcRenderer.send('reset-all-settings')

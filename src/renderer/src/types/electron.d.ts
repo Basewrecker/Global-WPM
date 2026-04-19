@@ -31,6 +31,7 @@ export interface ElectronAPI {
   setColorRanges: (ranges: { low: string; mid: string; high: string; ultra: string }) => void
   setInactivityTimeout: (value: number) => void
   setMinKeystrokes: (value: number) => void
+  setTrackingEnabled: (enabled: boolean) => void
   resetAllSettings: () => void
   getSessionStats: () => Promise<{ peakWpm: number; accuracy: number | null; totalKeystrokes: number; backspaces: number; avgWpm: number; timeTypedMs: number }>
   getLifetimeStats: () => Promise<{ peakWpm: number; accuracy: number | null; avgWpm: number; sessions: number; timeTypedMs: number }>

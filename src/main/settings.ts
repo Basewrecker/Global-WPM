@@ -8,6 +8,7 @@ export interface Settings {
     showMenuBarWpm: boolean
     globalShortcut: string
     lockOverlayToDesktop: boolean
+    trackingEnabled: boolean
   }
   display: {
     showOverlay: boolean
@@ -50,6 +51,7 @@ const defaultSettings: Settings = {
     showMenuBarWpm: false,
     globalShortcut: 'Alt+Shift+W',
     lockOverlayToDesktop: false,
+    trackingEnabled: true,
   },
   display: {
     showOverlay: true,
@@ -149,6 +151,10 @@ function validateSettings(s: Settings): Settings {
   validated.general.lockOverlayToDesktop = typeof s.general?.lockOverlayToDesktop === 'boolean'
     ? s.general.lockOverlayToDesktop
     : defaultSettings.general.lockOverlayToDesktop
+
+  validated.general.trackingEnabled = typeof s.general?.trackingEnabled === 'boolean'
+    ? s.general.trackingEnabled
+    : defaultSettings.general.trackingEnabled
 
   validated.display.showOverlay = typeof s.display?.showOverlay === 'boolean'
     ? s.display.showOverlay
