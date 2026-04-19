@@ -59,6 +59,9 @@ let snapshotActiveMs: number = 0
 const ROLLING_WINDOW_MS = 10000
 const MIN_TIME_SEC = 1.5
 
+export const MIN_SESSION_KEYS = 20
+export const MIN_SESSION_MS = 8000
+
 const stats = {
   lifetime: {
     highestWpm: 0,
@@ -195,7 +198,6 @@ export interface SessionSummary {
   totalKeystrokes: number
   totalBackspaces: number
   totalActiveMs: number
-  isNewSession: boolean
 }
 
 export function getSessionStats(): SessionStats {
@@ -221,13 +223,11 @@ export function getSessionStats(): SessionStats {
 }
 
 export function finalizeSession(): SessionSummary {
-  const isNewSession = snapshotKeystrokes === 0
   const summary: SessionSummary = {
     peakWpm: stats.session.highestWpm,
     totalKeystrokes: stats.session.keystrokes - snapshotKeystrokes,
     totalBackspaces: sessionBackspaces - snapshotBackspaces,
     totalActiveMs: totalActiveMs - snapshotActiveMs,
-    isNewSession,
   }
   snapshotKeystrokes = stats.session.keystrokes
   snapshotBackspaces = sessionBackspaces

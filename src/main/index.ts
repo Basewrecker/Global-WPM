@@ -1,6 +1,6 @@
 import { app, BrowserWindow, screen, Tray, Menu, nativeImage, ipcMain, globalShortcut } from 'electron'
 import { join } from 'path'
-import { initTracking, stopTracking, getWPM, getSessionStats as getTrackerSessionStats, resetSession, finalizeSession } from './keyboardTracker'
+import { initTracking, stopTracking, getWPM, getSessionStats as getTrackerSessionStats, resetSession, finalizeSession, MIN_SESSION_KEYS, MIN_SESSION_MS } from './keyboardTracker'
 import { getSettings, updateSettings } from './settings'
 import Store from 'electron-store'
 
@@ -56,7 +56,10 @@ const lifetimeStore = new Store({
   }
 })
 
+let sessionFinalizedThisLaunch = false
+
 function saveSessionToLifetime() {
+  const sessionStats = getTrackerSessionStats()
   const summary = finalizeSession()
   console.log('[LIFETIME] finalizeSession() returned:', JSON.stringify(summary))
   if (summary.totalKeystrokes === 0 && summary.totalActiveMs === 0) {
@@ -64,13 +67,18 @@ function saveSessionToLifetime() {
     return
   }
 
+  const qualifies = sessionStats.totalKeystrokes >= MIN_SESSION_KEYS
+    && sessionStats.timeTypedMs >= MIN_SESSION_MS
+  const shouldCountSession = qualifies && !sessionFinalizedThisLaunch
+  if (shouldCountSession) sessionFinalizedThisLaunch = true
+
   const prev = lifetimeStore.get('data') as LifetimeData
   const next = {
     peakWpm: Math.max(prev.peakWpm, summary.peakWpm),
     totalKeystrokes: prev.totalKeystrokes + summary.totalKeystrokes,
     totalBackspaces: prev.totalBackspaces + summary.totalBackspaces,
     totalActiveMs: prev.totalActiveMs + summary.totalActiveMs,
-    sessions: prev.sessions + (summary.isNewSession ? 1 : 0),
+    sessions: prev.sessions + (shouldCountSession ? 1 : 0),
   }
   lifetimeStore.set('data', next)
   console.log('[LIFETIME] saved to store:', JSON.stringify(next))
@@ -701,6 +709,7 @@ ipcMain.handle('get-lifetime-stats', () => {
 
 ipcMain.on('reset-session', () => {
   resetSession()
+  sessionFinalizedThisLaunch = false
 })
 
 ipcMain.on('set-color-ranges', (_, colorRanges) => {
