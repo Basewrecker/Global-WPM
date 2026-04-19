@@ -78,14 +78,12 @@ function saveSessionToLifetime() {
 
 function safeSend(win: BrowserWindow | null, channel: string, data?: unknown) {
   try {
-    if (!win) return
-    if (win.isDestroyed()) return
-    if (!win.webContents) return
-    if (win.webContents.isDestroyed()) return
-
-    win.webContents.send(channel, data)
+    if (!win || win.isDestroyed()) return
+    const wc = win.webContents
+    if (!wc || wc.isDestroyed()) return
+    wc.send(channel, data)
   } catch {
-    // DO NOTHING
+    // swallow — window was destroyed between check and send
   }
 }
 
@@ -439,7 +437,7 @@ function createSettingsWindow() {
     backgroundColor: '#00000000',
   })
 
-  const baseUrl = process.env.VITE_DEV_SERVER_URL || 'http://localhost:5173'
+  const baseUrl = process.env.VITE_DEV_SERVER_URL || 'http://localhost:51737'
   const settingsUrl = baseUrl.endsWith('/') ? `${baseUrl}#/settings` : `${baseUrl}/#/settings`
   
   settingsWindow.loadURL(settingsUrl)
@@ -479,7 +477,7 @@ function createStatsWindow() {
     backgroundColor: '#00000000',
   })
 
-  const baseUrl = process.env.VITE_DEV_SERVER_URL || 'http://localhost:5173'
+  const baseUrl = process.env.VITE_DEV_SERVER_URL || 'http://localhost:51737'
   const statsUrl = baseUrl.endsWith('/') ? `${baseUrl}#/stats` : `${baseUrl}/#/stats`
 
   statsWindow.loadURL(statsUrl)
@@ -550,6 +548,8 @@ function startInactivityResetLoop() {
   if (inactivityResetInterval) return
 
   inactivityResetInterval = setInterval(() => {
+    if (!mainWindow || mainWindow.isDestroyed()) return
+
     const settings = getSettings()
     const stats = getWPM()
 
@@ -680,16 +680,18 @@ ipcMain.handle('get-session-stats', () => {
 ipcMain.handle('get-lifetime-stats', () => {
   console.log('[LIFETIME] get-lifetime-stats called, store:', JSON.stringify(lifetimeStore.store))
   const data = lifetimeStore.get('data') as LifetimeData
-  const total = data.totalKeystrokes
-  const backspaces = data.totalBackspaces
-  const accuracy = total >= 10
-    ? Math.round((total / (total + backspaces)) * 100)
+  const sessionStats = getTrackerSessionStats()
+
+  const mergedKeystrokes = data.totalKeystrokes + sessionStats.totalKeystrokes
+  const mergedBackspaces = data.totalBackspaces + sessionStats.backspaces
+  const accuracy = mergedKeystrokes >= 10
+    ? Math.round((mergedKeystrokes / (mergedKeystrokes + mergedBackspaces)) * 100)
     : null
-  const avgWpm = data.totalActiveMs > 0 && total > 0
-    ? Math.round((total / 5) / (data.totalActiveMs / 60000))
+  const avgWpm = data.totalActiveMs > 0 && data.totalKeystrokes > 0
+    ? Math.round((data.totalKeystrokes / 5) / (data.totalActiveMs / 60000))
     : 0
   return {
-    peakWpm: data.peakWpm,
+    peakWpm: Math.max(data.peakWpm, sessionStats.peakWpm),
     accuracy,
     avgWpm,
     sessions: data.sessions,

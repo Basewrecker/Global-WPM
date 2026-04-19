@@ -49,6 +49,10 @@ export default defineConfig({
       '@': resolve(__dirname, 'src/renderer/src'),
     },
   },
+  server: {
+    port: 51737,
+    strictPort: true,
+  },
   root: resolve(__dirname, 'src/renderer'),
   base: './',
   build: {
