@@ -61,9 +61,7 @@ let sessionFinalizedThisLaunch = false
 function saveSessionToLifetime() {
   const sessionStats = getTrackerSessionStats()
   const summary = finalizeSession()
-  console.log('[LIFETIME] finalizeSession() returned:', JSON.stringify(summary))
   if (summary.totalKeystrokes === 0 && summary.totalActiveMs === 0) {
-    console.log('[LIFETIME] early exit — nothing to save')
     return
   }
 
@@ -81,7 +79,6 @@ function saveSessionToLifetime() {
     sessions: prev.sessions + (shouldCountSession ? 1 : 0),
   }
   lifetimeStore.set('data', next)
-  console.log('[LIFETIME] saved to store:', JSON.stringify(next))
 }
 
 function safeSend(win: BrowserWindow | null, channel: string, data?: unknown) {
@@ -698,7 +695,6 @@ ipcMain.handle('get-session-stats', () => {
 })
 
 ipcMain.handle('get-lifetime-stats', () => {
-  console.log('[LIFETIME] get-lifetime-stats called, store:', JSON.stringify(lifetimeStore.store))
   const data = lifetimeStore.get('data') as LifetimeData
   const sessionStats = getTrackerSessionStats()
 

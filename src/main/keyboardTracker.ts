@@ -50,6 +50,7 @@ let isHookRunning = false
 let sessionBackspaces: number = 0
 let totalActiveMs: number = 0
 let sessionWallStart: number = 0
+let wpmSamples: number[] = []
 
 // Snapshot of what was last committed to lifetime, for delta calculations
 let snapshotKeystrokes: number = 0
@@ -175,6 +176,7 @@ function calculateWPM(): WPMStats {
   if (wpm > stats.session.highestWpm) {
     stats.session.highestWpm = wpm
   }
+  wpmSamples.push(wpm)
 
   return {
     wpm: Math.max(0, wpm),
@@ -207,13 +209,13 @@ export function getSessionStats(): SessionStats {
     ? Math.round((total / (total + backspaces)) * 100)
     : null
 
-  let avgWpm = 0
-  if (totalActiveMs > 0 && total > 0) {
-    avgWpm = Math.round((total / 5) / (totalActiveMs / 60000))
-  }
+  const peak = stats.session.highestWpm
+  const avgWpm = wpmSamples.length > 0
+    ? Math.min(Math.round(wpmSamples.reduce((a, b) => a + b, 0) / wpmSamples.length), peak)
+    : 0
 
   return {
-    peakWpm: stats.session.highestWpm,
+    peakWpm: peak,
     accuracy,
     totalKeystrokes: total,
     backspaces,
@@ -247,6 +249,7 @@ export function resetSession(): void {
   snapshotKeystrokes = 0
   snapshotBackspaces = 0
   snapshotActiveMs = 0
+  wpmSamples = []
   keystrokes = []
   sessionStartTime = 0
   lastKeypressTime = 0
@@ -266,6 +269,7 @@ export function startTracking(): void {
   snapshotKeystrokes = 0
   snapshotBackspaces = 0
   snapshotActiveMs = 0
+  wpmSamples = []
 
   try {
     uIOhook.on('keydown', handleKeyDown)
@@ -295,6 +299,7 @@ export function stopTracking(): void {
   keystrokes = []
   sessionStartTime = 0
   lastKeypressTime = 0
+  wpmSamples = []
   isHookRunning = false
 }
 
