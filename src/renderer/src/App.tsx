@@ -137,44 +137,46 @@ function App() {
 
   return (
     <div
-      className="h-[100px] flex flex-row items-center justify-center px-6 overflow-hidden select-none cursor-default overlay-drag"
+      className="w-full h-full flex items-center justify-center overflow-hidden select-none cursor-default overlay-drag"
       style={{
-        backgroundColor: blurEnabled ? 'transparent' : 'rgba(28, 28, 30, 0.92)',
-        borderRadius: '18px',
+        backgroundColor: blurEnabled ? 'rgba(28, 28, 30, 0.55)' : 'rgba(28, 28, 30, 0.92)',
+        backdropFilter: blurEnabled ? 'blur(20px) saturate(150%)' : undefined,
+        WebkitBackdropFilter: blurEnabled ? 'blur(20px) saturate(150%)' : undefined,
+        borderRadius: '12px',
         border: '1px solid rgba(255, 255, 255, 0.08)',
         boxShadow: '0 4px 12px rgba(0, 0, 0, 0.25)',
         fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, sans-serif",
-        minWidth: textSize === 'large' ? '160px' : '145px',
-        gap: '8px',
         userSelect: 'none',
         WebkitUserSelect: 'none',
       }}
     >
-      <span
-        className="leading-none"
-        style={{
-          fontSize,
-          fontWeight: 600,
-          lineHeight: 1,
-          color: wpmColor,
-          letterSpacing: '-0.02em',
-          fontVariantNumeric: 'tabular-nums',
-        }}
-      >
-        {Math.round(displayWpm)}
-      </span>
-      <span
-        className="leading-none"
-        style={{
-          fontSize: labelSize,
-          fontWeight: 500,
-          lineHeight: 1,
-          color: 'rgba(255, 255, 255, 0.65)',
-          letterSpacing: '0.05em',
-        }}
-      >
-        WPM
-      </span>
+      <div className="flex flex-row items-center justify-center px-6" style={{ gap: '8px' }}>
+        <span
+          className="leading-none"
+          style={{
+            fontSize,
+            fontWeight: 600,
+            lineHeight: 1,
+            color: wpmColor,
+            letterSpacing: '-0.02em',
+            fontVariantNumeric: 'tabular-nums',
+          }}
+        >
+          {Math.round(displayWpm)}
+        </span>
+        <span
+          className="leading-none"
+          style={{
+            fontSize: labelSize,
+            fontWeight: 500,
+            lineHeight: 1,
+            color: 'rgba(255, 255, 255, 0.65)',
+            letterSpacing: '0.05em',
+          }}
+        >
+          WPM
+        </span>
+      </div>
     </div>
   )
 }

@@ -4,6 +4,8 @@ import { HexColorPicker } from 'react-colorful'
 
 const DEFAULT_SHORTCUT = 'Alt+Shift+W'
 
+const SPACING = { section: 20, row: 12, gap: 10 }
+
 interface Settings {
   general: {
     launchAtLogin: boolean
@@ -399,8 +401,8 @@ function SectionTitle({ children }: { children: React.ReactNode }) {
       color: 'rgba(255,255,255,0.45)',
       textTransform: 'uppercase',
       letterSpacing: '0.8px',
-      marginBottom: '6px',
-      marginTop: '20px',
+      marginBottom: `${SPACING.row}px`,
+      marginTop: `${SPACING.section}px`,
     }}>{children}</h3>
   )
 }
@@ -557,38 +559,6 @@ export default function Settings() {
                 window.electronAPI.setLockOverlayToDesktop(v)
               }} />
             </SettingRow>
-            <SettingRow label="WPM Text Size">
-              <SegmentedControl
-                value={settings.appearance.wpmTextSize}
-                options={[
-                  { label: 'Medium', value: 'medium' },
-                  { label: 'Large', value: 'large' },
-                ]}
-                onChange={(size) => {
-                  update('appearance', 'wpmTextSize', size)
-                  window.electronAPI.setWpmTextSize(size)
-                }}
-              />
-            </SettingRow>
-            <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '16px' }}>
-              <ResetButton onClick={() => {
-                if (window.confirm('Are you sure you want to reset all settings?')) {
-                  window.electronAPI.resetAllSettings()
-                  setSettings({
-                    ...defaultSettings,
-                    general: {
-                      ...defaultSettings.general,
-                      globalShortcut: DEFAULT_SHORTCUT,
-                    },
-                    appearance: {
-                      ...defaultSettings.appearance,
-                      wpmTextSize: 'medium',
-                    },
-                  })
-                  setOverlayOpacity(0.9)
-                }
-              }} />
-            </div>
           </div>
         )
 
@@ -602,19 +572,18 @@ export default function Settings() {
                 window.electronAPI.setSmartColouring(v)
               }} />
             </SettingRow>
-            <div 
-              style={{ 
-                marginTop: '16px',
+            <div
+              style={{
                 opacity: settings.appearance.smartColouring ? 1 : 0.5,
                 filter: settings.appearance.smartColouring ? 'none' : 'grayscale(0.3)',
                 transition: 'opacity 0.2s ease, filter 0.2s ease',
               }}
             >
               <SectionTitle>WPM Color Ranges</SectionTitle>
-              <p style={{ fontSize: '12px', color: 'rgba(255,255,255,0.5)', marginBottom: '12px', marginTop: '4px' }}>
+              <p style={{ fontSize: '12px', color: 'rgba(255,255,255,0.5)', marginBottom: `${SPACING.row}px`, marginTop: '4px' }}>
                 Customize how your WPM is colored based on typing speed.
               </p>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '10px', cursor: settings.appearance.smartColouring ? 'default' : 'not-allowed' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: `${SPACING.gap}px`, cursor: settings.appearance.smartColouring ? 'default' : 'not-allowed' }}>
                 <span style={{ fontSize: '13px', color: '#e5e5e7' }}>Slow (0–60)</span>
                 <ColorPicker color={colorRanges.low} onChange={(c) => {
                   const newRanges = { ...colorRanges, low: c }
@@ -622,7 +591,7 @@ export default function Settings() {
                   window.electronAPI.setColorRanges(newRanges)
                 }} disabled={!settings.appearance.smartColouring} />
               </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '10px', cursor: settings.appearance.smartColouring ? 'default' : 'not-allowed' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: `${SPACING.gap}px`, cursor: settings.appearance.smartColouring ? 'default' : 'not-allowed' }}>
                 <span style={{ fontSize: '13px', color: '#e5e5e7' }}>Average (60–90)</span>
                 <ColorPicker color={colorRanges.mid} onChange={(c) => {
                   const newRanges = { ...colorRanges, mid: c }
@@ -630,7 +599,7 @@ export default function Settings() {
                   window.electronAPI.setColorRanges(newRanges)
                 }} disabled={!settings.appearance.smartColouring} />
               </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '10px', cursor: settings.appearance.smartColouring ? 'default' : 'not-allowed' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: `${SPACING.gap}px`, cursor: settings.appearance.smartColouring ? 'default' : 'not-allowed' }}>
                 <span style={{ fontSize: '13px', color: '#e5e5e7' }}>Fast (90–120)</span>
                 <ColorPicker color={colorRanges.high} onChange={(c) => {
                   const newRanges = { ...colorRanges, high: c }
@@ -638,7 +607,7 @@ export default function Settings() {
                   window.electronAPI.setColorRanges(newRanges)
                 }} disabled={!settings.appearance.smartColouring} />
               </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '10px', cursor: settings.appearance.smartColouring ? 'default' : 'not-allowed' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: `${SPACING.gap}px`, cursor: settings.appearance.smartColouring ? 'default' : 'not-allowed' }}>
                 <span style={{ fontSize: '13px', color: '#e5e5e7' }}>Very Fast (120+)</span>
                 <ColorPicker color={colorRanges.ultra} onChange={(c) => {
                   const newRanges = { ...colorRanges, ultra: c }
@@ -646,7 +615,7 @@ export default function Settings() {
                   window.electronAPI.setColorRanges(newRanges)
                 }} disabled={!settings.appearance.smartColouring} />
               </div>
-              <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '12px' }}>
+              <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: `${SPACING.row}px` }}>
                 <button
                   onClick={() => {
                     if (
@@ -705,6 +674,19 @@ export default function Settings() {
               </div>
             </div>
             <SectionTitle>Display</SectionTitle>
+            <SettingRow label="WPM Text Size">
+              <SegmentedControl
+                value={settings.appearance.wpmTextSize}
+                options={[
+                  { label: 'Medium', value: 'medium' },
+                  { label: 'Large', value: 'large' },
+                ]}
+                onChange={(size) => {
+                  update('appearance', 'wpmTextSize', size)
+                  window.electronAPI.setWpmTextSize(size)
+                }}
+              />
+            </SettingRow>
             <SettingRow label="Blur Effect">
               <Toggle checked={blurEnabled} onChange={(v) => {
                 setBlurEnabled(v)
@@ -841,6 +823,32 @@ export default function Settings() {
         width: '100%',
       }}>
         {renderContent()}
+      </div>
+
+      {/* Footer */}
+      <div style={{
+        borderTop: '1px solid rgba(255,255,255,0.05)',
+        padding: '14px 28px',
+        display: 'flex',
+        justifyContent: 'flex-end',
+      }}>
+        <ResetButton onClick={() => {
+          if (window.confirm('Are you sure you want to reset all settings?')) {
+            window.electronAPI.resetAllSettings()
+            setSettings({
+              ...defaultSettings,
+              general: {
+                ...defaultSettings.general,
+                globalShortcut: DEFAULT_SHORTCUT,
+              },
+              appearance: {
+                ...defaultSettings.appearance,
+                wpmTextSize: 'medium',
+              },
+            })
+            setOverlayOpacity(0.9)
+          }
+        }} />
       </div>
     </div>
   )

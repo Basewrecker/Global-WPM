@@ -15,13 +15,12 @@ let tray: Tray | null = null
 let settingsWindow: BrowserWindow | null = null
 let statsWindow: BrowserWindow | null = null
 let wpmUpdateInterval: NodeJS.Timeout | null = null
-let inactivityResetInterval: NodeJS.Timeout | null = null
 let fadeInterval: NodeJS.Timeout | null = null
-let saveTimeout: NodeJS.Timeout | null = null
-let lastMenuBarWpm = 0
-let menuBarAnimationTimeouts: NodeJS.Timeout[] = []
+let moveTimeout: NodeJS.Timeout | null = null
 let registeredShortcut: string | null = null
 let hasSavedPosition = false
+let isQuitting = false
+let menuBarTitleCleared = true
 
 const SETTINGS_WIDTH = 780
 const SETTINGS_HEIGHT = 560
@@ -95,49 +94,17 @@ function safeSend(win: BrowserWindow | null, channel: string, data?: unknown) {
 let opacityTimeout: NodeJS.Timeout | null = null
 
 function getMenuBarWpm(wpm: number): string {
-  if (Number(wpm) === 0) return `${wpm}`
-  if (wpm <= 60) return `\x1b[31m${wpm}\x1b[0m`
-  if (wpm <= 90) return `\x1b[33m${wpm}\x1b[0m`
-  if (wpm <= 120) return `\x1b[32m${wpm}\x1b[0m`
-  return `\x1b[34m${wpm}\x1b[0m`
-}
-
-function animateMenuBarWpm(newWpm: number) {
-  menuBarAnimationTimeouts.forEach(t => clearTimeout(t))
-  menuBarAnimationTimeouts = []
-
-  if (Math.abs(newWpm - lastMenuBarWpm) <= 5) {
-    if (tray) tray.setTitle(getMenuBarWpm(newWpm))
-    lastMenuBarWpm = newWpm
-    return
-  }
-
-  const steps = 5
-  const stepTime = 40
-
-  for (let i = 1; i <= steps; i++) {
-    const timeout = setTimeout(() => {
-      if (tray) {
-        const value = Math.round(lastMenuBarWpm + (newWpm - lastMenuBarWpm) * (i / steps))
-        tray.setTitle(getMenuBarWpm(value))
-      }
-    }, i * stepTime)
-    menuBarAnimationTimeouts.push(timeout)
-  }
-
-  const finalTimeout = setTimeout(() => {
-    lastMenuBarWpm = newWpm
-  }, steps * stepTime + 10)
-  menuBarAnimationTimeouts.push(finalTimeout)
+  return `${wpm}`
 }
 
 function startWPMBroadcast() {
   if (wpmUpdateInterval) return
-   
+
   wpmUpdateInterval = setInterval(() => {
+    const settings = getSettings()
+    const stats = getWPM()
+
     if (mainWindow && !mainWindow.isDestroyed() && mainWindow.isVisible()) {
-      const settings = getSettings()
-      const stats = getWPM()
       safeSend(mainWindow, 'wpm:update', {
         ...stats,
         smartColouring: settings.appearance.smartColouring,
@@ -146,14 +113,15 @@ function startWPMBroadcast() {
         opacity: settings.display.opacity,
         blur: settings.display.blur
       })
-      
-      if (tray) {
-        if (settings.general.showMenuBarWpm) {
-          animateMenuBarWpm(stats.wpm)
-        } else {
-          tray.setTitle('')
-          lastMenuBarWpm = 0
-        }
+    }
+
+    if (tray) {
+      if (settings.general.showMenuBarWpm) {
+        tray.setTitle(getMenuBarWpm(stats.wpm))
+        menuBarTitleCleared = false
+      } else if (!menuBarTitleCleared) {
+        tray.setTitle('')
+        menuBarTitleCleared = true
       }
     }
   }, 100)
@@ -180,8 +148,6 @@ function createWindow() {
   const savedBounds = store.get('overlayBounds') as { x: number; y: number } | null
   hasSavedPosition = savedBounds !== null && typeof savedBounds.x === 'number' && typeof savedBounds.y === 'number'
 
-  const initSettings = getSettings()
-
   mainWindow = new BrowserWindow({
     width: WINDOW_WIDTH,
     height: WINDOW_HEIGHT,
@@ -193,6 +159,7 @@ function createWindow() {
     movable: true,
     fullscreenable: false,
     hasShadow: false,
+    roundedCorners: true,
     minimizable: false,
     maximizable: false,
     closable: false,
@@ -205,7 +172,6 @@ function createWindow() {
       contextIsolation: true,
     },
     backgroundColor: '#00000000',
-    vibrancy: initSettings.display.blur ? 'under-window' : undefined,
     visualEffectState: 'active',
   })
 
@@ -228,7 +194,6 @@ function createWindow() {
     }
   })
 
-  let moveTimeout: NodeJS.Timeout | null = null
   mainWindow.on('move', () => {
     if (moveTimeout) clearTimeout(moveTimeout)
     moveTimeout = setTimeout(() => {
@@ -240,20 +205,16 @@ function createWindow() {
   })
 
   mainWindow.on('close', (e) => {
+    if (isQuitting) return
     e.preventDefault()
     hideWindowAnimated()
   })
 
   mainWindow.on('closed', () => {
     stopWPMBroadcast()
-    stopInactivityResetLoop()
     if (fadeInterval) {
       clearInterval(fadeInterval)
       fadeInterval = null
-    }
-    if (saveTimeout) {
-      clearTimeout(saveTimeout)
-      saveTimeout = null
     }
     if (opacityTimeout) {
       clearTimeout(opacityTimeout)
@@ -273,7 +234,6 @@ function createWindow() {
   
   mainWindow.webContents.on('did-finish-load', () => {
     mainWindow?.show()
-    mainWindow?.focus()
     startWPMBroadcast()
     if (!hasSavedPosition) {
       setTopRightPosition()
@@ -344,7 +304,6 @@ function showWindow() {
     createWindow()
   } else {
     showWindowAnimated()
-    mainWindow.focus()
   }
 }
 
@@ -508,7 +467,6 @@ function getContextMenu() {
           hideWindowAnimated()
         } else {
           showWindowAnimated()
-          mainWindow.focus()
         }
       }
     },
@@ -526,7 +484,7 @@ function getContextMenu() {
     { type: 'separator' },
     {
       label: 'Quit',
-      click: () => process.exit(0)
+      click: () => app.quit()
     }
   ])
 }
@@ -547,37 +505,6 @@ function createTray() {
   tray.on('click', () => {
     tray.popUpContextMenu(getContextMenu())
   })
-}
-
-function startInactivityResetLoop() {
-  if (inactivityResetInterval) return
-
-  inactivityResetInterval = setInterval(() => {
-    if (!mainWindow || mainWindow.isDestroyed()) return
-
-    const settings = getSettings()
-    const stats = getWPM()
-
-    safeSend(mainWindow, 'wpm:update', {
-      ...stats,
-      smartColouring: settings.appearance.smartColouring,
-      wpmTextSize: settings.appearance.wpmTextSize,
-      colorRanges: settings.appearance.colorRanges,
-      opacity: settings.display.opacity,
-      blur: settings.display.blur
-    })
-
-    if (tray && settings.general.showMenuBarWpm) {
-      animateMenuBarWpm(stats.wpm)
-    }
-  }, 100)
-}
-
-function stopInactivityResetLoop() {
-  if (inactivityResetInterval) {
-    clearInterval(inactivityResetInterval)
-    inactivityResetInterval = null
-  }
 }
 
 app.whenReady().then(() => {
@@ -603,7 +530,7 @@ app.whenReady().then(() => {
   if (!settings.general.trackingEnabled) {
     stopTracking()
   }
-  startInactivityResetLoop()
+  startWPMBroadcast()
 })
 
 ipcMain.on('set-tracking-enabled', (_, enabled: boolean) => {
@@ -623,16 +550,13 @@ ipcMain.on('set-launch-at-login', (_, enabled: boolean) => {
 ipcMain.on('set-show-menu-bar-wpm', (_, enabled: boolean) => {
   updateSettings({ general: { showMenuBarWpm: enabled } })
   if (tray) {
-    if (!enabled) {
-      tray.setTitle('')
-      lastMenuBarWpm = 0
-    } else {
+    if (enabled) {
       const stats = getWPM()
+      tray.setTitle(getMenuBarWpm(stats.wpm))
+      menuBarTitleCleared = false
+    } else {
       tray.setTitle('')
-      setTimeout(() => tray?.setTitle(getMenuBarWpm(Math.round(stats.wpm * 0.6))), 40)
-      setTimeout(() => tray?.setTitle(getMenuBarWpm(Math.round(stats.wpm * 0.8))), 80)
-      setTimeout(() => tray?.setTitle(getMenuBarWpm(stats.wpm)), 120)
-      lastMenuBarWpm = stats.wpm
+      menuBarTitleCleared = true
     }
   }
 })
@@ -652,9 +576,7 @@ ipcMain.handle('set-opacity', (_, opacity: number) => {
 ipcMain.handle('set-blur', (_, enabled: boolean) => {
   if (!mainWindow || mainWindow.isDestroyed()) return
   updateSettings({ display: { blur: enabled } })
-  if (enabled) {
-    mainWindow.setVibrancy('under-window')
-  } else {
+  if (!enabled) {
     mainWindow.setVibrancy(undefined)
   }
 })
@@ -800,15 +722,35 @@ app.on('activate', () => {
   showWindow()
 })
 
-app.on('will-quit', () => {
-  saveSessionToLifetime()
-  unregisterShortcut()
-})
-
 app.on('before-quit', () => {
-  if (saveTimeout) {
-    clearTimeout(saveTimeout)
-    saveTimeout = null
+  if (isQuitting) return
+  isQuitting = true
+
+  stopTracking()
+  stopWPMBroadcast()
+  unregisterShortcut()
+
+  if (fadeInterval) {
+    clearInterval(fadeInterval)
+    fadeInterval = null
+  }
+  if (opacityTimeout) {
+    clearTimeout(opacityTimeout)
+    opacityTimeout = null
+  }
+  if (moveTimeout) {
+    clearTimeout(moveTimeout)
+    moveTimeout = null
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      const [x, y] = mainWindow.getPosition()
+      store.set('overlayBounds', { x, y })
+    }
+  }
+
+  saveSessionToLifetime()
+
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.destroy()
   }
 })
 

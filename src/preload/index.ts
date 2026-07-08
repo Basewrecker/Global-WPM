@@ -4,6 +4,7 @@ export interface WPMStats {
   wpm: number
   charCount: number
   timeWindowMs: number
+  lastKeyTime: number
   smartColouring: boolean
   wpmTextSize: 'medium' | 'large'
   colorRanges: {
