@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import { Settings as SettingsIcon, Sun, Sliders, Activity, Wrench } from 'lucide-react'
 import { HexColorPicker } from 'react-colorful'
 
@@ -481,6 +481,211 @@ const defaultColors = {
   ultra: '#3b82f6',
 }
 
+const HEATMAP_ACCENT = '45, 212, 191' // #2dd4bf — teal heat accent
+
+// Sqrt scale lifts mid-frequency keys so common letters read clearly brighter
+// than rare ones, instead of only the single max cell standing out.
+function heatmapIntensity(count: number, maxCount: number): number {
+  if (count <= 0 || maxCount <= 0) return 0
+  return Math.max(Math.sqrt(count) / Math.sqrt(maxCount), 0.12)
+}
+
+function heatmapColor(intensity: number): string {
+  if (intensity <= 0) return 'rgba(255,255,255,0.04)'
+  return `rgba(${HEATMAP_ACCENT}, ${intensity.toFixed(3)})`
+}
+
+function heatmapTextColor(intensity: number): string {
+  return intensity > 0.4 ? '#ffffff' : 'rgba(255,255,255,0.4)'
+}
+
+const KEY_CELL_SIZE = 22
+const KEY_CELL_GAP = 3
+const KEY_ROW_GAP = 5
+
+const KEYBOARD_ROWS: { key: string; label: string }[][] = [
+  [
+    { key: 'backquote', label: '`' }, { key: '1', label: '1' }, { key: '2', label: '2' }, { key: '3', label: '3' },
+    { key: '4', label: '4' }, { key: '5', label: '5' }, { key: '6', label: '6' }, { key: '7', label: '7' },
+    { key: '8', label: '8' }, { key: '9', label: '9' }, { key: '0', label: '0' },
+    { key: 'minus', label: '-' }, { key: 'equal', label: '=' },
+  ],
+  [
+    { key: 'q', label: 'q' }, { key: 'w', label: 'w' }, { key: 'e', label: 'e' }, { key: 'r', label: 'r' },
+    { key: 't', label: 't' }, { key: 'y', label: 'y' }, { key: 'u', label: 'u' }, { key: 'i', label: 'i' },
+    { key: 'o', label: 'o' }, { key: 'p', label: 'p' },
+    { key: 'bracketleft', label: '[' }, { key: 'bracketright', label: ']' }, { key: 'backslash', label: '\\' },
+  ],
+  [
+    { key: 'a', label: 'a' }, { key: 's', label: 's' }, { key: 'd', label: 'd' }, { key: 'f', label: 'f' },
+    { key: 'g', label: 'g' }, { key: 'h', label: 'h' }, { key: 'j', label: 'j' }, { key: 'k', label: 'k' },
+    { key: 'l', label: 'l' }, { key: 'semicolon', label: ';' }, { key: 'quote', label: "'" },
+  ],
+  [
+    { key: 'z', label: 'z' }, { key: 'x', label: 'x' }, { key: 'c', label: 'c' }, { key: 'v', label: 'v' },
+    { key: 'b', label: 'b' }, { key: 'n', label: 'n' }, { key: 'm', label: 'm' },
+    { key: 'comma', label: ',' }, { key: 'period', label: '.' }, { key: 'slash', label: '/' },
+  ],
+]
+
+// Standard QWERTY stagger — each row nudges right relative to the last.
+const ROW_OFFSETS = [0, 13, 18, 31]
+
+function KeyCell({ label, count, maxCount, wide, onHover, onMove }: {
+  label: string; count: number; maxCount: number; wide?: boolean
+  onHover: (text: string | null) => void
+  onMove: (x: number, y: number) => void
+}) {
+  const intensity = heatmapIntensity(count, maxCount)
+  return (
+    <div
+      onMouseEnter={() => onHover(`${label.toUpperCase()} — ${count.toLocaleString()} press${count === 1 ? '' : 'es'}`)}
+      onMouseMove={(e) => onMove(e.clientX, e.clientY)}
+      onMouseLeave={() => onHover(null)}
+      style={{
+        width: wide ? `${KEY_CELL_SIZE * 6 + KEY_CELL_GAP * 5}px` : `${KEY_CELL_SIZE}px`,
+        height: `${KEY_CELL_SIZE}px`,
+        borderRadius: '5px',
+        backgroundColor: heatmapColor(intensity),
+        border: '1px solid rgba(255,255,255,0.06)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        fontSize: '9px',
+        fontFamily: 'ui-monospace, SFMono-Regular, monospace',
+        color: heatmapTextColor(intensity),
+        flexShrink: 0,
+        userSelect: 'none',
+      }}
+    >
+      {label}
+    </div>
+  )
+}
+
+function KeyboardHeatmap({ keyFrequency, onHover, onMove }: {
+  keyFrequency: Record<string, number>
+  onHover: (text: string | null) => void
+  onMove: (x: number, y: number) => void
+}) {
+  const maxCount = useMemo(
+    () => Math.max(0, ...Object.values(keyFrequency)),
+    [keyFrequency]
+  )
+  const spaceCount = keyFrequency.space || 0
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: `${KEY_ROW_GAP}px`, alignItems: 'center' }}>
+      {KEYBOARD_ROWS.map((row, i) => (
+        <div key={i} style={{ display: 'flex', gap: `${KEY_CELL_GAP}px`, marginLeft: `${ROW_OFFSETS[i]}px` }}>
+          {row.map(({ key, label }) => (
+            <KeyCell
+              key={key}
+              label={label}
+              count={keyFrequency[key] || 0}
+              maxCount={maxCount}
+              onHover={onHover}
+              onMove={onMove}
+            />
+          ))}
+        </div>
+      ))}
+      <div style={{ display: 'flex', gap: `${KEY_CELL_GAP}px` }}>
+        <KeyCell label="space" count={spaceCount} maxCount={maxCount} wide onHover={onHover} onMove={onMove} />
+      </div>
+    </div>
+  )
+}
+
+const HOUR_LABELS: Record<number, string> = { 0: '12am', 6: '6am', 12: '12pm', 18: '6pm' }
+
+function formatHourReadout(hour: number): string {
+  if (hour === 0) return '12 AM'
+  if (hour === 12) return '12 PM'
+  return hour < 12 ? `${hour} AM` : `${hour - 12} PM`
+}
+
+const HOUR_CELL_SIZE = 12
+const HOUR_CELL_GAP = 2
+
+function HourlyActivityGrid({ hourly, onHover, onMove }: {
+  hourly: number[]
+  onHover: (text: string | null) => void
+  onMove: (x: number, y: number) => void
+}) {
+  const maxHourly = useMemo(() => Math.max(0, ...hourly), [hourly])
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+      <div style={{ display: 'flex', gap: `${HOUR_CELL_GAP}px` }}>
+        {hourly.map((count, hour) => (
+          <div
+            key={hour}
+            onMouseEnter={() => onHover(`${formatHourReadout(hour)} — ${count.toLocaleString()} keystrokes`)}
+            onMouseMove={(e) => onMove(e.clientX, e.clientY)}
+            onMouseLeave={() => onHover(null)}
+            style={{
+              width: `${HOUR_CELL_SIZE}px`,
+              height: `${HOUR_CELL_SIZE}px`,
+              borderRadius: '3px',
+              backgroundColor: heatmapColor(heatmapIntensity(count, maxHourly)),
+              border: '1px solid rgba(255,255,255,0.06)',
+              flexShrink: 0,
+            }}
+          />
+        ))}
+      </div>
+      <div style={{ display: 'flex', gap: `${HOUR_CELL_GAP}px`, marginTop: '4px' }}>
+        {hourly.map((_, hour) => (
+          <div
+            key={hour}
+            style={{
+              width: `${HOUR_CELL_SIZE}px`,
+              flexShrink: 0,
+              fontSize: '8px',
+              color: 'rgba(255,255,255,0.35)',
+              textAlign: 'center',
+              whiteSpace: 'nowrap',
+            }}
+          >
+            {HOUR_LABELS[hour] || ''}
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function HeatmapTooltip({ text, pos }: { text: string | null; pos: { x: number; y: number } | null }) {
+  if (!text || !pos) return null
+
+  // Flip to the cursor's left when there isn't room to the right.
+  const nearRightEdge = pos.x > window.innerWidth - 160
+  const left = nearRightEdge ? pos.x - 12 : pos.x + 12
+
+  return (
+    <div style={{
+      position: 'fixed',
+      left: `${left}px`,
+      top: `${pos.y - 8}px`,
+      transform: nearRightEdge ? 'translateX(-100%)' : 'none',
+      background: 'rgba(20,20,22,0.95)',
+      border: '1px solid rgba(255,255,255,0.08)',
+      borderRadius: '6px',
+      padding: '4px 8px',
+      fontSize: '12px',
+      color: '#ffffff',
+      boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
+      pointerEvents: 'none',
+      zIndex: 1000,
+      whiteSpace: 'nowrap',
+      fontVariantNumeric: 'tabular-nums',
+    }}>
+      {text}
+    </div>
+  )
+}
+
 export default function Settings() {
   const [settings, setSettings] = useState<Settings>(defaultSettings)
   const [activeTab, setActiveTab] = useState<TabId>('general')
@@ -495,6 +700,17 @@ export default function Settings() {
     totalKeystrokes: 0,
     backspaces: 0,
   })
+  const emptyHeatmapSet = { keyFrequency: {} as Record<string, number>, hourly: new Array(24).fill(0) }
+  const [heatmapData, setHeatmapData] = useState<{
+    lifetime: { keyFrequency: Record<string, number>; hourly: number[] }
+    session: { keyFrequency: Record<string, number>; hourly: number[] }
+  }>({
+    lifetime: emptyHeatmapSet,
+    session: emptyHeatmapSet,
+  })
+  const [heatmapMode, setHeatmapMode] = useState<'lifetime' | 'session'>('lifetime')
+  const [hoverReadout, setHoverReadout] = useState<string | null>(null)
+  const [tooltipPos, setTooltipPos] = useState<{ x: number; y: number } | null>(null)
 
   useEffect(() => {
     window.electronAPI.getGlobalShortcut().then((shortcut) => {
@@ -510,6 +726,11 @@ export default function Settings() {
     })
     setBlurEnabled(settings.display.blur)
   }, [])
+
+  useEffect(() => {
+    if (activeTab !== 'tracking') return
+    window.electronAPI.getHeatmapData().then(setHeatmapData)
+  }, [activeTab])
 
   const update = <K extends keyof Settings>(section: K, key: keyof Settings[K], value: Settings[K][keyof Settings[K]]) => {
     setSettings((prev) => ({
@@ -722,7 +943,10 @@ export default function Settings() {
           </div>
         )
 
-      case 'tracking':
+      case 'tracking': {
+        const activeHeatmap = heatmapData[heatmapMode]
+        const hasHeatmapData = Object.keys(activeHeatmap.keyFrequency).length > 0
+
         return (
           <div>
             <SectionTitle>Metrics</SectionTitle>
@@ -732,8 +956,55 @@ export default function Settings() {
             <SettingRow label="Track Raw WPM">
               <Toggle checked={settings.tracking.trackRawWpm} onChange={(v) => update('tracking', 'trackRawWpm', v)} />
             </SettingRow>
+
+            <SectionTitle>Key Frequency</SectionTitle>
+            <div style={{ display: 'flex', justifyContent: 'center', marginBottom: `${SPACING.row}px` }}>
+              <SegmentedControl
+                value={heatmapMode}
+                options={[
+                  { label: 'Lifetime', value: 'lifetime' },
+                  { label: 'Session', value: 'session' },
+                ]}
+                onChange={setHeatmapMode}
+              />
+            </div>
+
+            <HeatmapTooltip text={hoverReadout} pos={tooltipPos} />
+
+            {!hasHeatmapData ? (
+              <div style={{
+                textAlign: 'center',
+                padding: '28px 0',
+                fontSize: '12px',
+                color: 'rgba(255,255,255,0.35)',
+              }}>
+                Start typing to build your heatmap
+              </div>
+            ) : (
+              <>
+                <div style={{
+                  border: '1px solid rgba(255,255,255,0.09)',
+                  borderRadius: '8px',
+                  padding: '14px',
+                  display: 'flex',
+                  justifyContent: 'center',
+                }}>
+                  <KeyboardHeatmap keyFrequency={activeHeatmap.keyFrequency} onHover={setHoverReadout} onMove={(x, y) => setTooltipPos({ x, y })} />
+                </div>
+
+                <SectionTitle>Typing Activity by Hour</SectionTitle>
+                <div style={{
+                  border: '1px solid rgba(255,255,255,0.09)',
+                  borderRadius: '8px',
+                  padding: '14px',
+                }}>
+                  <HourlyActivityGrid hourly={activeHeatmap.hourly} onHover={setHoverReadout} onMove={(x, y) => setTooltipPos({ x, y })} />
+                </div>
+              </>
+            )}
           </div>
         )
+      }
 
       case 'advanced':
         return (

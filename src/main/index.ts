@@ -1,6 +1,6 @@
 import { app, BrowserWindow, screen, Tray, Menu, nativeImage, ipcMain, globalShortcut } from 'electron'
 import { join } from 'path'
-import { initTracking, startTracking, stopTracking, getWPM, getSessionStats as getTrackerSessionStats, resetSession, finalizeSession, MIN_SESSION_KEYS, MIN_SESSION_MS } from './keyboardTracker'
+import { initTracking, startTracking, stopTracking, getWPM, getSessionStats as getTrackerSessionStats, resetSession, finalizeSession, getSessionKeyFrequency, getSessionHourly, MIN_SESSION_KEYS, MIN_SESSION_MS } from './keyboardTracker'
 import { getSettings, updateSettings } from './settings'
 import Store from 'electron-store'
 
@@ -21,16 +21,17 @@ let registeredShortcut: string | null = null
 let hasSavedPosition = false
 let isQuitting = false
 let menuBarTitleCleared = true
+let currentDisplayId: number | null = null
 
 const SETTINGS_WIDTH = 780
 const SETTINGS_HEIGHT = 560
 const STATS_WIDTH = 480
 const STATS_HEIGHT = 460
 
-const WINDOW_WIDTH = 145
-const WINDOW_HEIGHT = 100
-const WINDOW_WIDTH_LARGE = 180
-const WINDOW_HEIGHT_LARGE = 110
+const WINDOW_WIDTH = 158
+const WINDOW_HEIGHT = 48
+const WINDOW_WIDTH_LARGE = 178
+const WINDOW_HEIGHT_LARGE = 56
 const preload = join(__dirname, '../preload/index.js')
 
 const store = new Store({
@@ -46,14 +47,30 @@ interface LifetimeData {
   totalBackspaces: number
   totalActiveMs: number
   sessions: number
+  keyFrequency: Record<string, number>
+  hourly: number[]
 }
 
 const lifetimeStore = new Store({
   name: 'lifetime-stats',
   defaults: {
-    data: { peakWpm: 0, totalKeystrokes: 0, totalBackspaces: 0, totalActiveMs: 0, sessions: 0 } as LifetimeData
+    data: {
+      peakWpm: 0,
+      totalKeystrokes: 0,
+      totalBackspaces: 0,
+      totalActiveMs: 0,
+      sessions: 0,
+      keyFrequency: {},
+      hourly: new Array(24).fill(0),
+    } as LifetimeData
   }
 })
+
+// Guards against data persisted before keyFrequency/hourly existed (defaults only
+// apply on a brand-new store, not to fields missing from an already-stored object).
+function normalizeHourly(hourly: unknown): number[] {
+  return Array.isArray(hourly) && hourly.length === 24 ? hourly : new Array(24).fill(0)
+}
 
 let sessionFinalizedThisLaunch = false
 
@@ -70,12 +87,21 @@ function saveSessionToLifetime() {
   if (shouldCountSession) sessionFinalizedThisLaunch = true
 
   const prev = lifetimeStore.get('data') as LifetimeData
-  const next = {
+
+  const keyFrequency = { ...(prev.keyFrequency || {}) }
+  for (const key in summary.keyFrequencyDelta) {
+    keyFrequency[key] = (keyFrequency[key] || 0) + summary.keyFrequencyDelta[key]
+  }
+  const hourly = normalizeHourly(prev.hourly).map((count, hour) => count + (summary.hourlyDelta[hour] || 0))
+
+  const next: LifetimeData = {
     peakWpm: Math.max(prev.peakWpm, summary.peakWpm),
     totalKeystrokes: prev.totalKeystrokes + summary.totalKeystrokes,
     totalBackspaces: prev.totalBackspaces + summary.totalBackspaces,
     totalActiveMs: prev.totalActiveMs + summary.totalActiveMs,
     sessions: prev.sessions + (shouldCountSession ? 1 : 0),
+    keyFrequency,
+    hourly,
   }
   lifetimeStore.set('data', next)
 }
@@ -136,17 +162,46 @@ function stopWPMBroadcast() {
 
 function setTopRightPosition() {
   if (!mainWindow || mainWindow.isDestroyed()) return
-  
+
   const { width } = screen.getPrimaryDisplay().workAreaSize
   const x = Math.round(width - WINDOW_WIDTH - 10)
   const y = 30
-  
+
   mainWindow.setPosition(x, y)
+}
+
+function isPointOnAnyDisplay(x: number, y: number): boolean {
+  const nearest = screen.getDisplayNearestPoint({ x, y })
+  return x >= nearest.bounds.x && x < nearest.bounds.x + nearest.bounds.width
+    && y >= nearest.bounds.y && y < nearest.bounds.y + nearest.bounds.height
+}
+
+function reassertOverlayCompositing() {
+  if (!mainWindow || mainWindow.isDestroyed()) return
+  mainWindow.setBackgroundColor('#00000000')
+  // Overlay blur is CSS backdrop-filter now (not native vibrancy) — this is a
+  // safety clear only, never re-enables 'under-window' vibrancy for the overlay.
+  mainWindow.setVibrancy(undefined)
+}
+
+function revalidateOverlayForDisplays() {
+  if (!mainWindow || mainWindow.isDestroyed() || !mainWindow.isVisible()) return
+
+  const bounds = mainWindow.getBounds()
+  if (!isPointOnAnyDisplay(bounds.x, bounds.y)) {
+    setTopRightPosition()
+  }
+
+  currentDisplayId = screen.getDisplayMatching(mainWindow.getBounds()).id
+  reassertOverlayCompositing()
 }
 
 function createWindow() {
   const savedBounds = store.get('overlayBounds') as { x: number; y: number } | null
-  hasSavedPosition = savedBounds !== null && typeof savedBounds.x === 'number' && typeof savedBounds.y === 'number'
+  hasSavedPosition = savedBounds !== null
+    && typeof savedBounds.x === 'number'
+    && typeof savedBounds.y === 'number'
+    && isPointOnAnyDisplay(savedBounds.x, savedBounds.y)
 
   mainWindow = new BrowserWindow({
     width: WINDOW_WIDTH,
@@ -159,7 +214,6 @@ function createWindow() {
     movable: true,
     fullscreenable: false,
     hasShadow: false,
-    roundedCorners: true,
     minimizable: false,
     maximizable: false,
     closable: false,
@@ -179,6 +233,7 @@ function createWindow() {
   mainWindow.setAlwaysOnTop(true, 'floating')
   mainWindow.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true })
   mainWindow.setBackgroundColor('#00000000')
+  currentDisplayId = screen.getDisplayMatching(mainWindow.getBounds()).id
 
   mainWindow.on('ready-to-show', () => {
     if (!hasSavedPosition) {
@@ -200,6 +255,12 @@ function createWindow() {
       if (mainWindow && !mainWindow.isDestroyed()) {
         const [x, y] = mainWindow.getPosition()
         store.set('overlayBounds', { x, y })
+
+        const display = screen.getDisplayMatching(mainWindow.getBounds())
+        if (display.id !== currentDisplayId) {
+          reassertOverlayCompositing()
+          currentDisplayId = display.id
+        }
       }
     }, 200)
   })
@@ -233,6 +294,7 @@ function createWindow() {
   }
   
   mainWindow.webContents.on('did-finish-load', () => {
+    mainWindow?.setBackgroundColor('#00000000')
     mainWindow?.show()
     startWPMBroadcast()
     if (!hasSavedPosition) {
@@ -531,6 +593,9 @@ app.whenReady().then(() => {
     stopTracking()
   }
   startWPMBroadcast()
+
+  screen.on('display-metrics-changed', revalidateOverlayForDisplays)
+  screen.on('display-removed', revalidateOverlayForDisplays)
 })
 
 ipcMain.on('set-tracking-enabled', (_, enabled: boolean) => {
@@ -634,6 +699,23 @@ ipcMain.handle('get-lifetime-stats', () => {
     avgWpm,
     sessions: data.sessions,
     timeTypedMs: data.totalActiveMs,
+  }
+})
+
+ipcMain.handle('get-heatmap-data', () => {
+  const data = lifetimeStore.get('data') as LifetimeData
+  const sessionKeyFrequency = getSessionKeyFrequency()
+  const sessionHourly = getSessionHourly()
+
+  const lifetimeKeyFrequency: Record<string, number> = { ...(data.keyFrequency || {}) }
+  for (const key in sessionKeyFrequency) {
+    lifetimeKeyFrequency[key] = (lifetimeKeyFrequency[key] || 0) + sessionKeyFrequency[key]
+  }
+  const lifetimeHourly = normalizeHourly(data.hourly).map((count, hour) => count + (sessionHourly[hour] || 0))
+
+  return {
+    lifetime: { keyFrequency: lifetimeKeyFrequency, hourly: lifetimeHourly },
+    session: { keyFrequency: sessionKeyFrequency, hourly: sessionHourly },
   }
 })
 

@@ -26,7 +26,7 @@ function App() {
   const [smartColouring, setSmartColouring] = useState(true)
   const [, setOpacity] = useState(0.9)
   const [blurEnabled, setBlurEnabled] = useState(false)
-  
+
   const rawWpmRef = useRef(0)
   const displayWpmRef = useRef(0)
   const lastKeyTimeRef = useRef(0)
@@ -40,8 +40,8 @@ function App() {
 
   const defaultColor = '#9CA3AF'
 
-  const fontSize = textSize === 'large' ? '48px' : '42px'
-  const labelSize = textSize === 'large' ? '12px' : '11px'
+  const fontSize = textSize === 'large' ? '50px' : '44px'
+  const labelSize = '13px'
 
   useEffect(() => {
     const unsubscribe = window.electronAPI.subscribeToWPM((stats: WPMStats) => {
@@ -137,12 +137,17 @@ function App() {
 
   return (
     <div
-      className="w-full h-full flex items-center justify-center overflow-hidden select-none cursor-default overlay-drag"
+      className="flex items-center justify-center overflow-hidden select-none cursor-default overlay-drag"
       style={{
-        backgroundColor: blurEnabled ? 'rgba(28, 28, 30, 0.55)' : 'rgba(28, 28, 30, 0.92)',
+        position: 'fixed',
+        inset: 0,
+        width: '100vw',
+        height: '100vh',
+        margin: 0,
+        backgroundColor: blurEnabled ? 'rgba(28, 28, 30, 0.55)' : '#1c1c1e',
         backdropFilter: blurEnabled ? 'blur(20px) saturate(150%)' : undefined,
         WebkitBackdropFilter: blurEnabled ? 'blur(20px) saturate(150%)' : undefined,
-        borderRadius: '12px',
+        borderRadius: '16px',
         border: '1px solid rgba(255, 255, 255, 0.08)',
         boxShadow: '0 4px 12px rgba(0, 0, 0, 0.25)',
         fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, sans-serif",
@@ -150,12 +155,12 @@ function App() {
         WebkitUserSelect: 'none',
       }}
     >
-      <div className="flex flex-row items-center justify-center px-6" style={{ gap: '8px' }}>
+      <div className="flex flex-row items-baseline justify-start" style={{ gap: '4px', width: '100%', paddingLeft: '6px' }}>
         <span
           className="leading-none"
           style={{
             fontSize,
-            fontWeight: 600,
+            fontWeight: 700,
             lineHeight: 1,
             color: wpmColor,
             letterSpacing: '-0.02em',
@@ -168,10 +173,11 @@ function App() {
           className="leading-none"
           style={{
             fontSize: labelSize,
-            fontWeight: 500,
+            fontWeight: 600,
             lineHeight: 1,
-            color: 'rgba(255, 255, 255, 0.65)',
+            color: 'rgba(255, 255, 255, 0.55)',
             letterSpacing: '0.05em',
+            textTransform: 'uppercase',
           }}
         >
           WPM

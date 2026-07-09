@@ -52,10 +52,41 @@ let totalActiveMs: number = 0
 let sessionWallStart: number = 0
 let wpmSamples: number[] = []
 
+// Cumulative per-key and per-hour counters for the current session
+let sessionKeyFrequency: Record<string, number> = {}
+let sessionHourly: number[] = new Array(24).fill(0)
+
 // Snapshot of what was last committed to lifetime, for delta calculations
 let snapshotKeystrokes: number = 0
 let snapshotBackspaces: number = 0
 let snapshotActiveMs: number = 0
+let snapshotKeyFrequency: Record<string, number> = {}
+let snapshotHourly: number[] = new Array(24).fill(0)
+
+// Maps a typing keycode to its normalized heatmap key name.
+// Mirrors TYPING_KEYCODES exactly — every key that passes that gate has a name here.
+const KEYCODE_TO_NAME: Record<number, string> = {
+  [UiohookKey.A]: 'a', [UiohookKey.B]: 'b', [UiohookKey.C]: 'c', [UiohookKey.D]: 'd', [UiohookKey.E]: 'e',
+  [UiohookKey.F]: 'f', [UiohookKey.G]: 'g', [UiohookKey.H]: 'h', [UiohookKey.I]: 'i', [UiohookKey.J]: 'j',
+  [UiohookKey.K]: 'k', [UiohookKey.L]: 'l', [UiohookKey.M]: 'm', [UiohookKey.N]: 'n', [UiohookKey.O]: 'o',
+  [UiohookKey.P]: 'p', [UiohookKey.Q]: 'q', [UiohookKey.R]: 'r', [UiohookKey.S]: 's', [UiohookKey.T]: 't',
+  [UiohookKey.U]: 'u', [UiohookKey.V]: 'v', [UiohookKey.W]: 'w', [UiohookKey.X]: 'x', [UiohookKey.Y]: 'y',
+  [UiohookKey.Z]: 'z',
+  [UiohookKey[0]]: '0', [UiohookKey[1]]: '1', [UiohookKey[2]]: '2', [UiohookKey[3]]: '3', [UiohookKey[4]]: '4',
+  [UiohookKey[5]]: '5', [UiohookKey[6]]: '6', [UiohookKey[7]]: '7', [UiohookKey[8]]: '8', [UiohookKey[9]]: '9',
+  [UiohookKey.Space]: 'space',
+  [UiohookKey.Backquote]: 'backquote',
+  [UiohookKey.Minus]: 'minus',
+  [UiohookKey.Equal]: 'equal',
+  [UiohookKey.BracketLeft]: 'bracketleft',
+  [UiohookKey.BracketRight]: 'bracketright',
+  [UiohookKey.Backslash]: 'backslash',
+  [UiohookKey.Semicolon]: 'semicolon',
+  [UiohookKey.Quote]: 'quote',
+  [UiohookKey.Comma]: 'comma',
+  [UiohookKey.Period]: 'period',
+  [UiohookKey.Slash]: 'slash',
+}
 
 const ROLLING_WINDOW_MS = 10000
 const MIN_TIME_SEC = 1.5
@@ -103,6 +134,12 @@ function handleKeyDown(event: { keycode: number; key?: string }) {
 
   if (sessionWallStart === 0) sessionWallStart = now
   if (sessionStartTime === 0) sessionStartTime = now
+
+  const keyName = KEYCODE_TO_NAME[event.keycode]
+  if (keyName) {
+    sessionKeyFrequency[keyName] = (sessionKeyFrequency[keyName] || 0) + 1
+  }
+  sessionHourly[new Date().getHours()]++
 
   keystrokes.push({
     key: `key${event.keycode}`,
@@ -200,6 +237,8 @@ export interface SessionSummary {
   totalKeystrokes: number
   totalBackspaces: number
   totalActiveMs: number
+  keyFrequencyDelta: Record<string, number>
+  hourlyDelta: number[]
 }
 
 export function getSessionStats(): SessionStats {
@@ -225,15 +264,26 @@ export function getSessionStats(): SessionStats {
 }
 
 export function finalizeSession(): SessionSummary {
+  const keyFrequencyDelta: Record<string, number> = {}
+  for (const key in sessionKeyFrequency) {
+    const delta = sessionKeyFrequency[key] - (snapshotKeyFrequency[key] || 0)
+    if (delta > 0) keyFrequencyDelta[key] = delta
+  }
+  const hourlyDelta = sessionHourly.map((count, hour) => count - (snapshotHourly[hour] || 0))
+
   const summary: SessionSummary = {
     peakWpm: stats.session.highestWpm,
     totalKeystrokes: stats.session.keystrokes - snapshotKeystrokes,
     totalBackspaces: sessionBackspaces - snapshotBackspaces,
     totalActiveMs: totalActiveMs - snapshotActiveMs,
+    keyFrequencyDelta,
+    hourlyDelta,
   }
   snapshotKeystrokes = stats.session.keystrokes
   snapshotBackspaces = sessionBackspaces
   snapshotActiveMs = totalActiveMs
+  snapshotKeyFrequency = { ...sessionKeyFrequency }
+  snapshotHourly = [...sessionHourly]
   return summary
 }
 
@@ -249,6 +299,10 @@ export function resetSession(): void {
   snapshotKeystrokes = 0
   snapshotBackspaces = 0
   snapshotActiveMs = 0
+  sessionKeyFrequency = {}
+  sessionHourly = new Array(24).fill(0)
+  snapshotKeyFrequency = {}
+  snapshotHourly = new Array(24).fill(0)
   wpmSamples = []
   keystrokes = []
   sessionStartTime = 0
@@ -269,6 +323,10 @@ export function startTracking(): void {
   snapshotKeystrokes = 0
   snapshotBackspaces = 0
   snapshotActiveMs = 0
+  sessionKeyFrequency = {}
+  sessionHourly = new Array(24).fill(0)
+  snapshotKeyFrequency = {}
+  snapshotHourly = new Array(24).fill(0)
   wpmSamples = []
 
   try {
@@ -309,6 +367,14 @@ export function getKeystrokes(): Keystroke[] {
 
 export function getKeystrokeCount(): number {
   return keystrokes.length
+}
+
+export function getSessionKeyFrequency(): Record<string, number> {
+  return { ...sessionKeyFrequency }
+}
+
+export function getSessionHourly(): number[] {
+  return [...sessionHourly]
 }
 
 export function getWPM(): WPMStats {
