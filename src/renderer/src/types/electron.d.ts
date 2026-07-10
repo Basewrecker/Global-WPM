@@ -13,6 +13,16 @@ export interface WPMStats {
   }
   opacity: number
   blur: boolean
+  wpmSmoothing: number
+  idleDecay: boolean
+  debug: boolean
+  debugInfo: { displayId: number | null; windowBounds: { x: number; y: number; width: number; height: number } } | null
+}
+
+export interface GameScores {
+  challenge?: number
+  focus?: number
+  arcade?: number
 }
 
 export interface ElectronAPI {
@@ -31,6 +41,16 @@ export interface ElectronAPI {
   setColorRanges: (ranges: { low: string; mid: string; high: string; ultra: string }) => void
   setInactivityTimeout: (value: number) => void
   setMinKeystrokes: (value: number) => void
+  setRollingWindow: (value: number) => void
+  setWpmSmoothing: (value: number) => void
+  setIdleDecay: (enabled: boolean) => void
+  getBehaviourSettings: () => Promise<{
+    inactivityTimeout: number
+    minKeystrokes: number
+    rollingWindowMs: number
+    wpmSmoothing: number
+    idleDecay: boolean
+  }>
   setTrackingEnabled: (enabled: boolean) => void
   resetAllSettings: () => void
   getSessionStats: () => Promise<{ peakWpm: number; accuracy: number | null; totalKeystrokes: number; backspaces: number; avgWpm: number; timeTypedMs: number }>
@@ -40,6 +60,14 @@ export interface ElectronAPI {
     lifetime: { keyFrequency: Record<string, number>; hourly: number[] }
     session: { keyFrequency: Record<string, number>; hourly: number[] }
   }>
+  exportData: (options: { settings: boolean; lifetimeStats: boolean; heatmap: boolean }) => Promise<{
+    success: boolean; cancelled?: boolean; path?: string; error?: string
+  }>
+  openConfigFolder: () => Promise<{ success: boolean; error?: string }>
+  resetLifetimeStats: () => Promise<{ success: boolean }>
+  setDebugMode: (enabled: boolean) => void
+  getGameScores: () => Promise<GameScores>
+  saveGameScore: (mode: keyof GameScores, score: number) => Promise<{ isNewRecord: boolean; best: number }>
 }
 
 declare global {

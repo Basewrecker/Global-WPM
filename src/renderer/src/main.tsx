@@ -3,6 +3,7 @@ import ReactDOM from 'react-dom/client'
 import App from './App'
 import Settings from './Settings'
 import Stats from './Stats'
+import Game from './Game'
 import './index.css'
 
 function Router() {
@@ -14,6 +15,10 @@ function Router() {
 
   if (hash === '#/stats') {
     return <Stats />
+  }
+
+  if (hash === '#/game') {
+    return <Game />
   }
 
   return <App />

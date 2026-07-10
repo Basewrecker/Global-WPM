@@ -15,6 +15,10 @@ export interface WPMStats {
   }
   opacity: number
   blur: boolean
+  wpmSmoothing: number
+  idleDecay: boolean
+  debug: boolean
+  debugInfo: { displayId: number | null; windowBounds: { x: number; y: number; width: number; height: number } } | null
 }
 
 export interface ColorRanges {
@@ -22,6 +26,12 @@ export interface ColorRanges {
   mid: string
   high: string
   ultra: string
+}
+
+export interface GameScores {
+  challenge?: number
+  focus?: number
+  arcade?: number
 }
 
 export interface ElectronAPI {
@@ -40,6 +50,16 @@ export interface ElectronAPI {
   getColorRanges: () => Promise<ColorRanges>
   setInactivityTimeout: (value: number) => void
   setMinKeystrokes: (value: number) => void
+  setRollingWindow: (value: number) => void
+  setWpmSmoothing: (value: number) => void
+  setIdleDecay: (enabled: boolean) => void
+  getBehaviourSettings: () => Promise<{
+    inactivityTimeout: number
+    minKeystrokes: number
+    rollingWindowMs: number
+    wpmSmoothing: number
+    idleDecay: boolean
+  }>
   setTrackingEnabled: (enabled: boolean) => void
   resetAllSettings: () => void
   getSessionStats: () => Promise<{ peakWpm: number; accuracy: number | null; totalKeystrokes: number; backspaces: number; avgWpm: number; timeTypedMs: number }>
@@ -49,6 +69,14 @@ export interface ElectronAPI {
     lifetime: { keyFrequency: Record<string, number>; hourly: number[] }
     session: { keyFrequency: Record<string, number>; hourly: number[] }
   }>
+  exportData: (options: { settings: boolean; lifetimeStats: boolean; heatmap: boolean }) => Promise<{
+    success: boolean; cancelled?: boolean; path?: string; error?: string
+  }>
+  openConfigFolder: () => Promise<{ success: boolean; error?: string }>
+  resetLifetimeStats: () => Promise<{ success: boolean }>
+  setDebugMode: (enabled: boolean) => void
+  getGameScores: () => Promise<GameScores>
+  saveGameScore: (mode: keyof GameScores, score: number) => Promise<{ isNewRecord: boolean; best: number }>
 }
 
 contextBridge.exposeInMainWorld('electronAPI', {
@@ -99,6 +127,18 @@ contextBridge.exposeInMainWorld('electronAPI', {
   setMinKeystrokes: (value: number) => {
     ipcRenderer.send('set-min-keystrokes', value)
   },
+  setRollingWindow: (value: number) => {
+    ipcRenderer.send('set-rolling-window', value)
+  },
+  setWpmSmoothing: (value: number) => {
+    ipcRenderer.send('set-wpm-smoothing', value)
+  },
+  setIdleDecay: (enabled: boolean) => {
+    ipcRenderer.send('set-idle-decay', enabled)
+  },
+  getBehaviourSettings: () => {
+    return ipcRenderer.invoke('get-behaviour-settings')
+  },
   setTrackingEnabled: (enabled: boolean) => {
     ipcRenderer.send('set-tracking-enabled', enabled)
   },
@@ -116,5 +156,23 @@ contextBridge.exposeInMainWorld('electronAPI', {
   },
   getHeatmapData: () => {
     return ipcRenderer.invoke('get-heatmap-data')
+  },
+  exportData: (options: { settings: boolean; lifetimeStats: boolean; heatmap: boolean }) => {
+    return ipcRenderer.invoke('export-data', options)
+  },
+  openConfigFolder: () => {
+    return ipcRenderer.invoke('open-config-folder')
+  },
+  resetLifetimeStats: () => {
+    return ipcRenderer.invoke('reset-lifetime-stats')
+  },
+  setDebugMode: (enabled: boolean) => {
+    ipcRenderer.send('set-debug-mode', enabled)
+  },
+  getGameScores: () => {
+    return ipcRenderer.invoke('get-game-scores')
+  },
+  saveGameScore: (mode: keyof GameScores, score: number) => {
+    return ipcRenderer.invoke('save-game-score', mode, score)
   },
 })

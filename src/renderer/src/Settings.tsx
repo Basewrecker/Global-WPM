@@ -6,6 +6,10 @@ const DEFAULT_SHORTCUT = 'Alt+Shift+W'
 
 const SPACING = { section: 20, row: 12, gap: 10 }
 
+// Warm teal accent — shared by toggles, slider fills, and the heatmap, for a single cohesive accent color.
+const ACCENT = '#2dd4bf'
+const ACCENT_RGB = '45, 212, 191'
+
 interface Settings {
   general: {
     launchAtLogin: boolean
@@ -26,6 +30,9 @@ interface Settings {
   behaviour: {
     inactivityTimeout: number
     minKeystrokes: number
+    rollingWindowMs: number
+    wpmSmoothing: number
+    idleDecay: boolean
   }
   tracking: {
     trackAccuracy: boolean
@@ -56,6 +63,9 @@ const defaultSettings: Settings = {
   behaviour: {
     inactivityTimeout: 5000,
     minKeystrokes: 10,
+    rollingWindowMs: 10000,
+    wpmSmoothing: 0.15,
+    idleDecay: true,
   },
   tracking: {
     trackAccuracy: false,
@@ -82,6 +92,96 @@ const tabs: Tab[] = [
   { id: 'advanced', label: 'Advanced', icon: <Wrench size={16} /> },
 ]
 
+// ---------- Design system primitives ----------
+
+/** Global styles for the row-divider system (last row in a card has no divider). */
+function DesignSystemStyles() {
+  return (
+    <style>{`
+      .settings-card > .settings-row:last-child { border-bottom: none !important; }
+    `}</style>
+  )
+}
+
+function SectionTitle({ children }: { children: React.ReactNode }) {
+  return (
+    <h3 style={{
+      fontSize: '11px',
+      fontWeight: '600',
+      color: 'rgba(255,255,255,0.45)',
+      textTransform: 'uppercase',
+      letterSpacing: '0.5px',
+      marginBottom: '10px',
+      marginTop: `${SPACING.section}px`,
+    }}>{children}</h3>
+  )
+}
+
+// ---------- Flat layout primitives (Advanced tab trial — no boxed cards) ----------
+
+function FlatSectionTitle({ children, color }: { children: React.ReactNode; color?: string }) {
+  return (
+    <h3 style={{
+      fontSize: '11px',
+      fontWeight: '600',
+      color: color ?? 'rgba(255,255,255,0.45)',
+      textTransform: 'uppercase',
+      letterSpacing: '0.5px',
+      margin: '0 0 14px',
+    }}>{children}</h3>
+  )
+}
+
+/** Two-column row with no surrounding box and no per-row divider — sections are
+ * separated by FlatDivider instead, so individual rows don't need their own hairline. */
+function FlatRow({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div style={{
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      padding: '14px 0',
+      gap: '16px',
+    }}>
+      <span style={{ fontSize: '14px', color: 'rgba(255,255,255,0.9)', fontWeight: 500 }}>{label}</span>
+      {children}
+    </div>
+  )
+}
+
+function FlatDivider() {
+  return <div style={{ height: '1px', background: 'rgba(255,255,255,0.06)', margin: '28px 0' }} />
+}
+
+function Card({ children, padding }: { children: React.ReactNode; padding?: string }) {
+  return (
+    <div className="settings-card" style={{
+      background: '#161618',
+      border: '1px solid rgba(255,255,255,0.06)',
+      borderRadius: '14px',
+      padding: padding ?? '4px 20px',
+    }}>
+      {children}
+    </div>
+  )
+}
+
+function Row({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="settings-row" style={{
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      padding: '14px 0',
+      borderBottom: '1px solid rgba(255,255,255,0.04)',
+      gap: '16px',
+    }}>
+      <span style={{ fontSize: '14px', color: 'rgba(255,255,255,0.9)', fontWeight: 500 }}>{label}</span>
+      {children}
+    </div>
+  )
+}
+
 function Toggle({ checked, onChange }: { checked: boolean; onChange: (v: boolean) => void }) {
   return (
     <div
@@ -93,7 +193,7 @@ function Toggle({ checked, onChange }: { checked: boolean; onChange: (v: boolean
         width: '36px',
         height: '22px',
         borderRadius: '11px',
-        backgroundColor: checked ? '#30d158' : '#48484a',
+        backgroundColor: checked ? ACCENT : '#48484a',
         position: 'relative',
         transition: 'all 0.2s ease',
         cursor: 'pointer',
@@ -116,76 +216,139 @@ function Toggle({ checked, onChange }: { checked: boolean; onChange: (v: boolean
   )
 }
 
-function SettingRow({ label, children }: { label: string; children: React.ReactNode }) {
+/** Small labeled checkbox — used for one-shot options (e.g. export selection) that
+ * are not persistent settings, so unlike Toggle it carries no ACCENT-track chrome. */
+function Checkbox({ checked, label, onChange }: { checked: boolean; label: string; onChange: (v: boolean) => void }) {
   return (
-    <div style={{
-      display: 'flex',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-      padding: '12px 0',
-    }}>
-      <span style={{ fontSize: '13px', color: '#e5e5e7' }}>{label}</span>
-      {children}
+    <div
+      onClick={() => onChange(!checked)}
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: '7px',
+        cursor: 'pointer',
+        userSelect: 'none',
+      }}
+    >
+      <div
+        style={{
+          width: '16px',
+          height: '16px',
+          borderRadius: '5px',
+          border: `1px solid ${checked ? ACCENT : 'rgba(255,255,255,0.18)'}`,
+          backgroundColor: checked ? ACCENT : 'rgba(255,255,255,0.06)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          flexShrink: 0,
+          transition: 'all 0.15s ease',
+        }}
+      >
+        {checked && (
+          <svg width="10" height="10" viewBox="0 0 16 16" fill="none">
+            <path d="M3 8.5L6.2 11.5L13 4.5" stroke="#0b0b0c" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        )}
+      </div>
+      <span style={{ fontSize: '13px', color: 'rgba(255,255,255,0.85)' }}>{label}</span>
     </div>
   )
 }
 
-function NumberRow({ label, value, min, max, onChange }: {
-  label: string; value: number; min: number; max: number; onChange: (v: number) => void
+/** Stepper: [ − ] value [ + ] — replaces raw number inputs. */
+function Stepper({ value, min, max, step, onChange }: {
+  value: number; min: number; max: number; step: number; onChange: (v: number) => void
 }) {
+  const atMin = value <= min
+  const atMax = value >= max
+
+  const buttonStyle = (disabled: boolean): React.CSSProperties => ({
+    width: '28px',
+    height: '28px',
+    borderRadius: '8px',
+    background: 'rgba(255,255,255,0.06)',
+    border: 'none',
+    color: 'rgba(255,255,255,0.85)',
+    fontSize: '16px',
+    lineHeight: 1,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    cursor: disabled ? 'not-allowed' : 'pointer',
+    opacity: disabled ? 0.35 : 1,
+    transition: 'background 0.15s ease',
+    padding: 0,
+  })
+
   return (
-    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 0' }}>
-      <span style={{ fontSize: '13px', color: '#e5e5e7' }}>{label}</span>
+    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+      <button
+        type="button"
+        disabled={atMin}
+        onClick={() => onChange(Math.max(min, value - step))}
+        style={buttonStyle(atMin)}
+        onMouseEnter={(e) => { if (!atMin) e.currentTarget.style.background = 'rgba(255,255,255,0.1)' }}
+        onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.06)' }}
+      >
+        −
+      </button>
+      <span style={{
+        minWidth: '56px',
+        textAlign: 'center',
+        fontSize: '14px',
+        color: '#ffffff',
+        fontVariantNumeric: 'tabular-nums',
+        fontFamily: 'ui-monospace, SFMono-Regular, monospace',
+      }}>
+        {value}
+      </span>
+      <button
+        type="button"
+        disabled={atMax}
+        onClick={() => onChange(Math.min(max, value + step))}
+        style={buttonStyle(atMax)}
+        onMouseEnter={(e) => { if (!atMax) e.currentTarget.style.background = 'rgba(255,255,255,0.1)' }}
+        onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.06)' }}
+      >
+        +
+      </button>
+    </div>
+  )
+}
+
+function SliderControl({ value, min, max, step, onChange, formatValue }: {
+  value: number; min: number; max: number; step: number; onChange: (v: number) => void
+  formatValue?: (v: number) => string
+}) {
+  const pct = ((value - min) / (max - min)) * 100
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
       <input
-        type="number"
+        type="range"
         min={min}
         max={max}
+        step={step}
         value={value}
-        onChange={(e) => onChange(Math.max(min, Math.min(max, Number(e.target.value))))}
+        onChange={(e) => onChange(Number(e.target.value))}
         style={{
-          width: '80px',
-          padding: '5px 10px',
-          backgroundColor: 'rgba(44, 44, 46, 0.8)',
-          border: '1px solid rgba(255,255,255,0.08)',
-          borderRadius: '5px',
-          color: '#ffffff',
-          fontSize: '13px',
-          textAlign: 'center',
+          width: '120px',
+          height: '4px',
+          appearance: 'none',
+          background: `linear-gradient(to right, ${ACCENT} ${pct}%, rgba(255,255,255,0.1) ${pct}%)`,
+          borderRadius: '2px',
           outline: 'none',
+          cursor: 'pointer',
         }}
       />
-    </div>
-  )
-}
-
-function SliderRow({ label, value, min, max, step, onChange }: {
-  label: string; value: number; min: number; max: number; step: number; onChange: (v: number) => void
-}) {
-  return (
-    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 0' }}>
-      <span style={{ fontSize: '13px', color: '#e5e5e7' }}>{label}</span>
-      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-        <input
-          type="range"
-          min={min}
-          max={max}
-          step={step}
-          value={value}
-          onChange={(e) => onChange(Number(e.target.value))}
-          style={{
-            width: '120px',
-            height: '4px',
-            appearance: 'none',
-            background: `linear-gradient(to right, #30d158 ${((value - min) / (max - min)) * 100}%, rgba(255,255,255,0.15) ${((value - min) / (max - min)) * 100}%)`,
-            borderRadius: '2px',
-            outline: 'none',
-            cursor: 'pointer',
-          }}
-        />
-        <span style={{ fontSize: '12px', color: 'rgba(255,255,255,0.6)', minWidth: '36px', textAlign: 'right' }}>
-          {Math.round(value)}%
-        </span>
-      </div>
+      <span style={{
+        fontSize: '12px',
+        color: 'rgba(255,255,255,0.6)',
+        minWidth: '36px',
+        textAlign: 'right',
+        fontVariantNumeric: 'tabular-nums',
+      }}>
+        {formatValue ? formatValue(value) : `${Math.round(value)}%`}
+      </span>
     </div>
   )
 }
@@ -211,10 +374,11 @@ function ColorPicker({ color, onChange, disabled }: { color: string; onChange: (
       <div
         onClick={() => !disabled && setIsOpen(!isOpen)}
         style={{
-          width: '22px',
-          height: '22px',
+          width: '24px',
+          height: '24px',
           backgroundColor: color,
           borderRadius: '7px',
+          border: '1px solid rgba(255,255,255,0.1)',
           cursor: disabled ? 'not-allowed' : 'pointer',
           boxShadow: 'inset 0 0 0 1px rgba(0,0,0,0.25), 0 0 6px rgba(0,0,0,0.2)',
           opacity: disabled ? 0.4 : 1,
@@ -293,7 +457,7 @@ function ShortcutRow({ label, shortcut, onChange }: {
       if (e.repeat) return
 
       const modifierKeys = ['Shift', 'Alt', 'Control', 'Meta']
-      
+
       if (modifierKeys.includes(e.key)) {
         if (e.key === 'Shift') keys.add('Shift')
         if (e.key === 'Alt') keys.add('Alt')
@@ -331,7 +495,7 @@ function ShortcutRow({ label, shortcut, onChange }: {
 
   const handleReset = () => {
     onChange(DEFAULT_SHORTCUT)
-    
+
     if (shortcutRef.current) {
       shortcutRef.current.classList.remove('shortcut-reset')
       void shortcutRef.current.offsetWidth
@@ -345,13 +509,15 @@ function ShortcutRow({ label, shortcut, onChange }: {
   const isDefault = shortcut === DEFAULT_SHORTCUT
 
   return (
-    <div style={{
+    <div className="settings-row" style={{
       display: 'flex',
       justifyContent: 'space-between',
       alignItems: 'center',
-      padding: '12px 0',
+      padding: '14px 0',
+      borderBottom: '1px solid rgba(255,255,255,0.04)',
+      gap: '16px',
     }}>
-      <span style={{ fontSize: '13px', color: '#e5e5e7' }}>{label}</span>
+      <span style={{ fontSize: '14px', color: 'rgba(255,255,255,0.9)', fontWeight: 500 }}>{label}</span>
       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
         <div
           ref={shortcutRef}
@@ -359,19 +525,23 @@ function ShortcutRow({ label, shortcut, onChange }: {
           onBlur={() => setListening(false)}
           style={{
             padding: '6px 12px',
-            backgroundColor: listening ? 'rgba(48, 209, 88, 0.2)' : 'rgba(44, 44, 46, 0.8)',
-            border: `1px solid ${listening ? '#30D158' : 'rgba(255,255,255,0.08)'}`,
-            borderRadius: '6px',
-            color: listening ? '#30D158' : '#ffffff',
-          fontSize: '12px',
-          cursor: 'pointer',
-          minWidth: '100px',
-          textAlign: 'center',
-          fontFamily: 'monospace',
-        }}
-      >
-        {listening ? 'Press keys...' : formatShortcut(shortcut)}
-      </div>
+            height: '28px',
+            boxSizing: 'border-box',
+            display: 'flex',
+            alignItems: 'center',
+            backgroundColor: listening ? `rgba(${ACCENT_RGB}, 0.15)` : 'rgba(255,255,255,0.06)',
+            border: `1px solid ${listening ? ACCENT : 'rgba(255,255,255,0.08)'}`,
+            borderRadius: '8px',
+            color: listening ? ACCENT : '#ffffff',
+            fontSize: '12px',
+            cursor: 'pointer',
+            minWidth: '100px',
+            justifyContent: 'center',
+            fontFamily: 'monospace',
+          }}
+        >
+          {listening ? 'Press keys...' : formatShortcut(shortcut)}
+        </div>
         {!isDefault && (
           <button
             onClick={handleReset}
@@ -379,7 +549,7 @@ function ShortcutRow({ label, shortcut, onChange }: {
               padding: '4px 10px',
               backgroundColor: 'transparent',
               border: '1px solid rgba(255,255,255,0.15)',
-              borderRadius: '4px',
+              borderRadius: '6px',
               color: 'rgba(255,255,255,0.6)',
               fontSize: '11px',
               cursor: 'pointer',
@@ -393,25 +563,11 @@ function ShortcutRow({ label, shortcut, onChange }: {
   )
 }
 
-function SectionTitle({ children }: { children: React.ReactNode }) {
-  return (
-    <h3 style={{
-      fontSize: '11px',
-      fontWeight: '600',
-      color: 'rgba(255,255,255,0.45)',
-      textTransform: 'uppercase',
-      letterSpacing: '0.8px',
-      marginBottom: `${SPACING.row}px`,
-      marginTop: `${SPACING.section}px`,
-    }}>{children}</h3>
-  )
-}
-
-function SegmentedControl<T extends string>({ 
-  value, 
-  options, 
-  onChange 
-}: { 
+function SegmentedControl<T extends string>({
+  value,
+  options,
+  onChange
+}: {
   value: T
   options: { label: string; value: T }[]
   onChange: (value: T) => void
@@ -419,9 +575,9 @@ function SegmentedControl<T extends string>({
   return (
     <div style={{
       display: 'flex',
-      backgroundColor: 'rgba(44, 44, 46, 0.8)',
-      borderRadius: '6px',
-      padding: '2px',
+      backgroundColor: 'rgba(255,255,255,0.06)',
+      borderRadius: '8px',
+      padding: '3px',
       gap: '2px',
     }}>
       {options.map((option) => (
@@ -429,8 +585,8 @@ function SegmentedControl<T extends string>({
           key={option.value}
           onClick={() => onChange(option.value)}
           style={{
-            padding: '4px 12px',
-            borderRadius: '4px',
+            padding: '5px 14px',
+            borderRadius: '6px',
             cursor: 'pointer',
             backgroundColor: value === option.value ? 'rgba(255,255,255,0.12)' : 'transparent',
             color: value === option.value ? '#ffffff' : 'rgba(255,255,255,0.6)',
@@ -451,25 +607,85 @@ function ResetButton({ onClick }: { onClick: () => void }) {
     <button
       onClick={onClick}
       style={{
-        fontSize: '11px',
-        color: 'rgba(255,255,255,0.6)',
-        background: 'rgba(255,255,255,0.02)',
-        border: '1px solid rgba(255,255,255,0.06)',
-        borderRadius: '6px',
-        padding: '5px 10px',
+        fontSize: '12px',
+        color: 'rgba(255,255,255,0.65)',
+        background: 'rgba(255,255,255,0.05)',
+        border: '1px solid rgba(255,255,255,0.08)',
+        borderRadius: '8px',
+        padding: '7px 14px',
         cursor: 'pointer',
         transition: 'all 0.15s ease',
       }}
       onMouseEnter={(e) => {
-        e.currentTarget.style.background = 'rgba(255,255,255,0.06)'
-        e.currentTarget.style.color = 'rgba(255,255,255,0.9)'
+        e.currentTarget.style.background = 'rgba(255,255,255,0.09)'
+        e.currentTarget.style.color = 'rgba(255,255,255,0.95)'
+      }}
+      onMouseLeave={(e) => {
+        e.currentTarget.style.background = 'rgba(255,255,255,0.05)'
+        e.currentTarget.style.color = 'rgba(255,255,255,0.65)'
+      }}
+    >
+      Reset All Settings
+    </button>
+  )
+}
+
+function DangerButton({ label, onClick }: { label: string; onClick: () => void }) {
+  return (
+    <button
+      onClick={onClick}
+      style={{
+        fontSize: '12px',
+        color: 'rgba(248,113,113,0.85)',
+        background: 'rgba(248,113,113,0.07)',
+        border: '1px solid rgba(248,113,113,0.18)',
+        borderRadius: '8px',
+        padding: '7px 14px',
+        cursor: 'pointer',
+        transition: 'all 0.15s ease',
+      }}
+      onMouseEnter={(e) => {
+        e.currentTarget.style.background = 'rgba(248,113,113,0.14)'
+        e.currentTarget.style.color = 'rgba(248,113,113,1)'
+      }}
+      onMouseLeave={(e) => {
+        e.currentTarget.style.background = 'rgba(248,113,113,0.07)'
+        e.currentTarget.style.color = 'rgba(248,113,113,0.85)'
+      }}
+    >
+      {label}
+    </button>
+  )
+}
+
+function SubtleButton({ label, disabled, onClick }: { label: string; disabled: boolean; onClick: () => void }) {
+  return (
+    <button
+      onClick={onClick}
+      disabled={disabled}
+      style={{
+        fontSize: '11px',
+        color: 'rgba(255,255,255,0.6)',
+        background: 'rgba(255,255,255,0.02)',
+        border: '1px solid rgba(255,255,255,0.06)',
+        padding: '5px 10px',
+        borderRadius: '6px',
+        cursor: disabled ? 'not-allowed' : 'pointer',
+        transition: 'all 0.15s ease',
+        opacity: disabled ? 0.4 : 1,
+      }}
+      onMouseEnter={(e) => {
+        if (!disabled) {
+          e.currentTarget.style.background = 'rgba(255,255,255,0.06)'
+          e.currentTarget.style.color = 'rgba(255,255,255,0.9)'
+        }
       }}
       onMouseLeave={(e) => {
         e.currentTarget.style.background = 'rgba(255,255,255,0.02)'
         e.currentTarget.style.color = 'rgba(255,255,255,0.6)'
       }}
     >
-      Reset All Settings
+      {label}
     </button>
   )
 }
@@ -481,7 +697,7 @@ const defaultColors = {
   ultra: '#3b82f6',
 }
 
-const HEATMAP_ACCENT = '45, 212, 191' // #2dd4bf — teal heat accent
+const HEATMAP_ACCENT = ACCENT_RGB // shared teal accent, ties the heatmap to the rest of the UI
 
 // Sqrt scale lifts mid-frequency keys so common letters read clearly brighter
 // than rare ones, instead of only the single max cell standing out.
@@ -711,6 +927,9 @@ export default function Settings() {
   const [heatmapMode, setHeatmapMode] = useState<'lifetime' | 'session'>('lifetime')
   const [hoverReadout, setHoverReadout] = useState<string | null>(null)
   const [tooltipPos, setTooltipPos] = useState<{ x: number; y: number } | null>(null)
+  const [exportOptions, setExportOptions] = useState({ settings: true, lifetimeStats: true, heatmap: true })
+  const [exportStatus, setExportStatus] = useState<{ type: 'success' | 'error'; message: string } | null>(null)
+  const lastSmoothingRef = useRef(0.15)
 
   useEffect(() => {
     window.electronAPI.getGlobalShortcut().then((shortcut) => {
@@ -724,6 +943,9 @@ export default function Settings() {
         setColorRanges(ranges)
       }
     })
+    window.electronAPI.getBehaviourSettings().then((behaviour) => {
+      setSettings((prev) => ({ ...prev, behaviour }))
+    })
     setBlurEnabled(settings.display.blur)
   }, [])
 
@@ -731,6 +953,12 @@ export default function Settings() {
     if (activeTab !== 'tracking') return
     window.electronAPI.getHeatmapData().then(setHeatmapData)
   }, [activeTab])
+
+  useEffect(() => {
+    if (!exportStatus) return
+    const t = setTimeout(() => setExportStatus(null), 3000)
+    return () => clearTimeout(t)
+  }, [exportStatus])
 
   const update = <K extends keyof Settings>(section: K, key: keyof Settings[K], value: Settings[K][keyof Settings[K]]) => {
     setSettings((prev) => ({
@@ -742,44 +970,52 @@ export default function Settings() {
     }))
   }
 
+  const colorRangesAtDefault =
+    colorRanges.low === defaultColors.low &&
+    colorRanges.mid === defaultColors.mid &&
+    colorRanges.high === defaultColors.high &&
+    colorRanges.ultra === defaultColors.ultra
+
   const renderContent = () => {
     switch (activeTab) {
       case 'general':
         return (
           <div>
             <SectionTitle>General</SectionTitle>
-            <SettingRow label="Launch at Login">
-              <Toggle checked={settings.general.launchAtLogin} onChange={(v) => {
-                update('general', 'launchAtLogin', v)
-                window.electronAPI.setLaunchAtLogin(v)
-              }} />
-            </SettingRow>
-            <SettingRow label="Show WPM in Menu Bar">
-              <Toggle checked={settings.general.showMenuBarWpm} onChange={(v) => {
-                update('general', 'showMenuBarWpm', v)
-                window.electronAPI.setShowMenuBarWpm(v)
-              }} />
-            </SettingRow>
-            <SettingRow label="Enable Tracking">
-              <Toggle checked={trackingEnabled} onChange={(v) => {
-                setTrackingEnabled(v)
-                window.electronAPI.setTrackingEnabled(v)
-              }} />
-            </SettingRow>
-            <ShortcutRow
-              label="Global Shortcut"
-              shortcut={settings.general.globalShortcut}
-              onChange={async (shortcut) => {
-                update('general', 'globalShortcut', shortcut)
-                await window.electronAPI.setGlobalShortcut(shortcut)
-              }}
-            />
-            <SettingRow label="Lock Overlay to Desktop">
-              <Toggle checked={settings.general.lockOverlayToDesktop} onChange={(v) => {
-                update('general', 'lockOverlayToDesktop', v)
-                window.electronAPI.setLockOverlayToDesktop(v)
-              }} />
-            </SettingRow>
+            <Card>
+              <Row label="Launch at Login">
+                <Toggle checked={settings.general.launchAtLogin} onChange={(v) => {
+                  update('general', 'launchAtLogin', v)
+                  window.electronAPI.setLaunchAtLogin(v)
+                }} />
+              </Row>
+              <Row label="Show WPM in Menu Bar">
+                <Toggle checked={settings.general.showMenuBarWpm} onChange={(v) => {
+                  update('general', 'showMenuBarWpm', v)
+                  window.electronAPI.setShowMenuBarWpm(v)
+                }} />
+              </Row>
+              <Row label="Enable Tracking">
+                <Toggle checked={trackingEnabled} onChange={(v) => {
+                  setTrackingEnabled(v)
+                  window.electronAPI.setTrackingEnabled(v)
+                }} />
+              </Row>
+              <ShortcutRow
+                label="Global Shortcut"
+                shortcut={settings.general.globalShortcut}
+                onChange={async (shortcut) => {
+                  update('general', 'globalShortcut', shortcut)
+                  await window.electronAPI.setGlobalShortcut(shortcut)
+                }}
+              />
+              <Row label="Lock Overlay to Desktop">
+                <Toggle checked={settings.general.lockOverlayToDesktop} onChange={(v) => {
+                  update('general', 'lockOverlayToDesktop', v)
+                  window.electronAPI.setLockOverlayToDesktop(v)
+                }} />
+              </Row>
+            </Card>
           </div>
         )
 
@@ -787,12 +1023,15 @@ export default function Settings() {
         return (
           <div>
             <SectionTitle>Colors</SectionTitle>
-            <SettingRow label="Smart Colouring">
-              <Toggle checked={settings.appearance.smartColouring} onChange={(v) => {
-                update('appearance', 'smartColouring', v)
-                window.electronAPI.setSmartColouring(v)
-              }} />
-            </SettingRow>
+            <Card>
+              <Row label="Smart Colouring">
+                <Toggle checked={settings.appearance.smartColouring} onChange={(v) => {
+                  update('appearance', 'smartColouring', v)
+                  window.electronAPI.setSmartColouring(v)
+                }} />
+              </Row>
+            </Card>
+
             <div
               style={{
                 opacity: settings.appearance.smartColouring ? 1 : 0.5,
@@ -804,144 +1043,172 @@ export default function Settings() {
               <p style={{ fontSize: '12px', color: 'rgba(255,255,255,0.5)', marginBottom: `${SPACING.row}px`, marginTop: '4px' }}>
                 Customize how your WPM is colored based on typing speed.
               </p>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: `${SPACING.gap}px`, cursor: settings.appearance.smartColouring ? 'default' : 'not-allowed' }}>
-                <span style={{ fontSize: '13px', color: '#e5e5e7' }}>Slow (0–60)</span>
-                <ColorPicker color={colorRanges.low} onChange={(c) => {
-                  const newRanges = { ...colorRanges, low: c }
-                  setColorRanges(newRanges)
-                  window.electronAPI.setColorRanges(newRanges)
-                }} disabled={!settings.appearance.smartColouring} />
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: `${SPACING.gap}px`, cursor: settings.appearance.smartColouring ? 'default' : 'not-allowed' }}>
-                <span style={{ fontSize: '13px', color: '#e5e5e7' }}>Average (60–90)</span>
-                <ColorPicker color={colorRanges.mid} onChange={(c) => {
-                  const newRanges = { ...colorRanges, mid: c }
-                  setColorRanges(newRanges)
-                  window.electronAPI.setColorRanges(newRanges)
-                }} disabled={!settings.appearance.smartColouring} />
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: `${SPACING.gap}px`, cursor: settings.appearance.smartColouring ? 'default' : 'not-allowed' }}>
-                <span style={{ fontSize: '13px', color: '#e5e5e7' }}>Fast (90–120)</span>
-                <ColorPicker color={colorRanges.high} onChange={(c) => {
-                  const newRanges = { ...colorRanges, high: c }
-                  setColorRanges(newRanges)
-                  window.electronAPI.setColorRanges(newRanges)
-                }} disabled={!settings.appearance.smartColouring} />
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: `${SPACING.gap}px`, cursor: settings.appearance.smartColouring ? 'default' : 'not-allowed' }}>
-                <span style={{ fontSize: '13px', color: '#e5e5e7' }}>Very Fast (120+)</span>
-                <ColorPicker color={colorRanges.ultra} onChange={(c) => {
-                  const newRanges = { ...colorRanges, ultra: c }
-                  setColorRanges(newRanges)
-                  window.electronAPI.setColorRanges(newRanges)
-                }} disabled={!settings.appearance.smartColouring} />
-              </div>
+              <Card>
+                <Row label="Slow (0–60)">
+                  <div style={{ cursor: settings.appearance.smartColouring ? 'default' : 'not-allowed' }}>
+                    <ColorPicker color={colorRanges.low} onChange={(c) => {
+                      const newRanges = { ...colorRanges, low: c }
+                      setColorRanges(newRanges)
+                      window.electronAPI.setColorRanges(newRanges)
+                    }} disabled={!settings.appearance.smartColouring} />
+                  </div>
+                </Row>
+                <Row label="Average (60–90)">
+                  <div style={{ cursor: settings.appearance.smartColouring ? 'default' : 'not-allowed' }}>
+                    <ColorPicker color={colorRanges.mid} onChange={(c) => {
+                      const newRanges = { ...colorRanges, mid: c }
+                      setColorRanges(newRanges)
+                      window.electronAPI.setColorRanges(newRanges)
+                    }} disabled={!settings.appearance.smartColouring} />
+                  </div>
+                </Row>
+                <Row label="Fast (90–120)">
+                  <div style={{ cursor: settings.appearance.smartColouring ? 'default' : 'not-allowed' }}>
+                    <ColorPicker color={colorRanges.high} onChange={(c) => {
+                      const newRanges = { ...colorRanges, high: c }
+                      setColorRanges(newRanges)
+                      window.electronAPI.setColorRanges(newRanges)
+                    }} disabled={!settings.appearance.smartColouring} />
+                  </div>
+                </Row>
+                <Row label="Very Fast (120+)">
+                  <div style={{ cursor: settings.appearance.smartColouring ? 'default' : 'not-allowed' }}>
+                    <ColorPicker color={colorRanges.ultra} onChange={(c) => {
+                      const newRanges = { ...colorRanges, ultra: c }
+                      setColorRanges(newRanges)
+                      window.electronAPI.setColorRanges(newRanges)
+                    }} disabled={!settings.appearance.smartColouring} />
+                  </div>
+                </Row>
+              </Card>
               <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: `${SPACING.row}px` }}>
-                <button
+                <SubtleButton
+                  label="Reset to Default"
+                  disabled={colorRangesAtDefault}
                   onClick={() => {
-                    if (
-                      colorRanges.low !== defaultColors.low ||
-                      colorRanges.mid !== defaultColors.mid ||
-                      colorRanges.high !== defaultColors.high ||
-                      colorRanges.ultra !== defaultColors.ultra
-                    ) {
+                    if (!colorRangesAtDefault) {
                       setColorRanges({ ...defaultColors })
                       window.electronAPI.setColorRanges(defaultColors)
                     }
                   }}
-                  disabled={
-                    colorRanges.low === defaultColors.low &&
-                    colorRanges.mid === defaultColors.mid &&
-                    colorRanges.high === defaultColors.high &&
-                    colorRanges.ultra === defaultColors.ultra
-                  }
-                  style={{
-                    fontSize: '11px',
-                    color: 'rgba(255,255,255,0.6)',
-                    background: 'rgba(255,255,255,0.02)',
-                    border: '1px solid rgba(255,255,255,0.06)',
-                    padding: '5px 10px',
-                    borderRadius: '6px',
-                    cursor: 
-                      colorRanges.low === defaultColors.low &&
-                      colorRanges.mid === defaultColors.mid &&
-                      colorRanges.high === defaultColors.high &&
-                      colorRanges.ultra === defaultColors.ultra ? 'not-allowed' : 'pointer',
-                    transition: 'all 0.15s ease',
-                    opacity: 
-                      colorRanges.low === defaultColors.low &&
-                      colorRanges.mid === defaultColors.mid &&
-                      colorRanges.high === defaultColors.high &&
-                      colorRanges.ultra === defaultColors.ultra ? 0.4 : 1,
-                  }}
-                  onMouseEnter={(e) => {
-                    if (
-                      colorRanges.low !== defaultColors.low ||
-                      colorRanges.mid !== defaultColors.mid ||
-                      colorRanges.high !== defaultColors.high ||
-                      colorRanges.ultra !== defaultColors.ultra
-                    ) {
-                      e.currentTarget.style.background = 'rgba(255,255,255,0.06)'
-                      e.currentTarget.style.color = 'rgba(255,255,255,0.9)'
-                    }
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.background = 'rgba(255,255,255,0.02)'
-                    e.currentTarget.style.color = 'rgba(255,255,255,0.6)'
-                  }}
-                >
-                  Reset to Default
-                </button>
+                />
               </div>
             </div>
+
             <SectionTitle>Display</SectionTitle>
-            <SettingRow label="WPM Text Size">
-              <SegmentedControl
-                value={settings.appearance.wpmTextSize}
-                options={[
-                  { label: 'Medium', value: 'medium' },
-                  { label: 'Large', value: 'large' },
-                ]}
-                onChange={(size) => {
-                  update('appearance', 'wpmTextSize', size)
-                  window.electronAPI.setWpmTextSize(size)
-                }}
-              />
-            </SettingRow>
-            <SettingRow label="Blur Effect">
-              <Toggle checked={blurEnabled} onChange={(v) => {
-                setBlurEnabled(v)
-                window.electronAPI.setBlur(v)
-              }} />
-            </SettingRow>
-            <SliderRow
-              label="Overlay Opacity"
-              value={overlayOpacity}
-              min={0}
-              max={100}
-              step={1}
-              onChange={(v) => {
-                setOverlayOpacity(v)
-                window.electronAPI.setOpacity(v)
-              }}
-            />
+            <Card>
+              <Row label="WPM Text Size">
+                <SegmentedControl
+                  value={settings.appearance.wpmTextSize}
+                  options={[
+                    { label: 'Medium', value: 'medium' },
+                    { label: 'Large', value: 'large' },
+                  ]}
+                  onChange={(size) => {
+                    update('appearance', 'wpmTextSize', size)
+                    window.electronAPI.setWpmTextSize(size)
+                  }}
+                />
+              </Row>
+              <Row label="Blur Effect">
+                <Toggle checked={blurEnabled} onChange={(v) => {
+                  setBlurEnabled(v)
+                  window.electronAPI.setBlur(v)
+                }} />
+              </Row>
+              <Row label="Overlay Opacity">
+                <SliderControl
+                  value={overlayOpacity}
+                  min={0}
+                  max={100}
+                  step={1}
+                  onChange={(v) => {
+                    setOverlayOpacity(v)
+                    window.electronAPI.setOpacity(v)
+                  }}
+                />
+              </Row>
+            </Card>
           </div>
         )
 
-      case 'behaviour':
+      case 'behaviour': {
+        const smoothingEnabled = settings.behaviour.wpmSmoothing > 0
+
         return (
           <div>
             <SectionTitle>Typing Detection</SectionTitle>
-            <NumberRow label="Inactivity Timeout (ms)" value={settings.behaviour.inactivityTimeout} min={2000} max={10000} onChange={(v) => {
-              update('behaviour', 'inactivityTimeout', v)
-              window.electronAPI.setInactivityTimeout(v)
-            }} />
-            <NumberRow label="Minimum Keystrokes" value={settings.behaviour.minKeystrokes} min={1} max={50} onChange={(v) => {
-              update('behaviour', 'minKeystrokes', v)
-              window.electronAPI.setMinKeystrokes(v)
-            }} />
+            <Card>
+              <Row label="Inactivity Timeout (ms)">
+                <Stepper value={settings.behaviour.inactivityTimeout} min={2000} max={10000} step={500} onChange={(v) => {
+                  update('behaviour', 'inactivityTimeout', v)
+                  window.electronAPI.setInactivityTimeout(v)
+                }} />
+              </Row>
+              <Row label="Minimum Keystrokes">
+                <Stepper value={settings.behaviour.minKeystrokes} min={1} max={50} step={1} onChange={(v) => {
+                  update('behaviour', 'minKeystrokes', v)
+                  window.electronAPI.setMinKeystrokes(v)
+                }} />
+              </Row>
+            </Card>
+
+            <SectionTitle>WPM Behaviour</SectionTitle>
+            <Card>
+              <Row label="Rolling Window">
+                <SliderControl
+                  value={settings.behaviour.rollingWindowMs / 1000}
+                  min={5}
+                  max={30}
+                  step={1}
+                  formatValue={(v) => `${Math.round(v)}s`}
+                  onChange={(v) => {
+                    const ms = v * 1000
+                    update('behaviour', 'rollingWindowMs', ms)
+                    window.electronAPI.setRollingWindow(ms)
+                  }}
+                />
+              </Row>
+              <Row label="Smooth WPM">
+                <Toggle checked={smoothingEnabled} onChange={(checked) => {
+                  if (checked) {
+                    const restored = lastSmoothingRef.current > 0 ? lastSmoothingRef.current : 0.15
+                    update('behaviour', 'wpmSmoothing', restored)
+                    window.electronAPI.setWpmSmoothing(restored)
+                  } else {
+                    if (settings.behaviour.wpmSmoothing > 0) {
+                      lastSmoothingRef.current = settings.behaviour.wpmSmoothing
+                    }
+                    update('behaviour', 'wpmSmoothing', 0)
+                    window.electronAPI.setWpmSmoothing(0)
+                  }
+                }} />
+              </Row>
+              {smoothingEnabled && (
+                <Row label="Smoothing Amount">
+                  <SliderControl
+                    value={(settings.behaviour.wpmSmoothing / 0.5) * 100}
+                    min={0}
+                    max={100}
+                    step={1}
+                    onChange={(v) => {
+                      const smoothing = (v / 100) * 0.5
+                      update('behaviour', 'wpmSmoothing', smoothing)
+                      window.electronAPI.setWpmSmoothing(smoothing)
+                    }}
+                  />
+                </Row>
+              )}
+              <Row label="Idle Decay">
+                <Toggle checked={settings.behaviour.idleDecay} onChange={(v) => {
+                  update('behaviour', 'idleDecay', v)
+                  window.electronAPI.setIdleDecay(v)
+                }} />
+              </Row>
+            </Card>
           </div>
         )
+      }
 
       case 'tracking': {
         const activeHeatmap = heatmapData[heatmapMode]
@@ -950,12 +1217,14 @@ export default function Settings() {
         return (
           <div>
             <SectionTitle>Metrics</SectionTitle>
-            <SettingRow label="Track Accuracy">
-              <Toggle checked={settings.tracking.trackAccuracy} onChange={(v) => update('tracking', 'trackAccuracy', v)} />
-            </SettingRow>
-            <SettingRow label="Track Raw WPM">
-              <Toggle checked={settings.tracking.trackRawWpm} onChange={(v) => update('tracking', 'trackRawWpm', v)} />
-            </SettingRow>
+            <Card>
+              <Row label="Track Accuracy">
+                <Toggle checked={settings.tracking.trackAccuracy} onChange={(v) => update('tracking', 'trackAccuracy', v)} />
+              </Row>
+              <Row label="Track Raw WPM">
+                <Toggle checked={settings.tracking.trackRawWpm} onChange={(v) => update('tracking', 'trackRawWpm', v)} />
+              </Row>
+            </Card>
 
             <SectionTitle>Key Frequency</SectionTitle>
             <div style={{ display: 'flex', justifyContent: 'center', marginBottom: `${SPACING.row}px` }}>
@@ -982,39 +1251,129 @@ export default function Settings() {
               </div>
             ) : (
               <>
-                <div style={{
-                  border: '1px solid rgba(255,255,255,0.09)',
-                  borderRadius: '8px',
-                  padding: '14px',
-                  display: 'flex',
-                  justifyContent: 'center',
-                }}>
-                  <KeyboardHeatmap keyFrequency={activeHeatmap.keyFrequency} onHover={setHoverReadout} onMove={(x, y) => setTooltipPos({ x, y })} />
-                </div>
+                <Card padding="16px 20px">
+                  <div style={{ display: 'flex', justifyContent: 'center' }}>
+                    <KeyboardHeatmap keyFrequency={activeHeatmap.keyFrequency} onHover={setHoverReadout} onMove={(x, y) => setTooltipPos({ x, y })} />
+                  </div>
+                </Card>
 
                 <SectionTitle>Typing Activity by Hour</SectionTitle>
-                <div style={{
-                  border: '1px solid rgba(255,255,255,0.09)',
-                  borderRadius: '8px',
-                  padding: '14px',
-                }}>
+                <Card padding="16px 20px">
                   <HourlyActivityGrid hourly={activeHeatmap.hourly} onHover={setHoverReadout} onMove={(x, y) => setTooltipPos({ x, y })} />
-                </div>
+                </Card>
               </>
             )}
           </div>
         )
       }
 
-      case 'advanced':
+      case 'advanced': {
+        const nothingSelected = !exportOptions.settings && !exportOptions.lifetimeStats && !exportOptions.heatmap
+
         return (
           <div>
-            <SectionTitle>Developer</SectionTitle>
-            <SettingRow label="Debug Mode">
-              <Toggle checked={settings.advanced.debugMode} onChange={(v) => update('advanced', 'debugMode', v)} />
-            </SettingRow>
+            {/* Export Data — flat, with a faint tint grouping the checkboxes only */}
+            <FlatSectionTitle>Export Data</FlatSectionTitle>
+            <div style={{ background: 'rgba(255,255,255,0.02)', borderRadius: '10px', padding: '14px 16px' }}>
+              <span style={{ fontSize: '12px', color: 'rgba(255,255,255,0.5)', fontWeight: 500 }}>Include:</span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '20px', marginTop: '10px' }}>
+                <Checkbox
+                  label="Settings"
+                  checked={exportOptions.settings}
+                  onChange={(v) => setExportOptions((prev) => ({ ...prev, settings: v }))}
+                />
+                <Checkbox
+                  label="Lifetime Stats"
+                  checked={exportOptions.lifetimeStats}
+                  onChange={(v) => setExportOptions((prev) => ({ ...prev, lifetimeStats: v }))}
+                />
+                <Checkbox
+                  label="Heatmap Data"
+                  checked={exportOptions.heatmap}
+                  onChange={(v) => setExportOptions((prev) => ({ ...prev, heatmap: v }))}
+                />
+              </div>
+
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'flex-end',
+                gap: '10px',
+                marginTop: '12px',
+              }}>
+                {exportStatus && (
+                  <span style={{
+                    fontSize: '12px',
+                    color: exportStatus.type === 'success' ? ACCENT : 'rgba(248,113,113,0.85)',
+                  }}>
+                    {exportStatus.message}
+                  </span>
+                )}
+                <SubtleButton
+                  label="Export Data"
+                  disabled={nothingSelected}
+                  onClick={async () => {
+                    const result = await window.electronAPI.exportData(exportOptions)
+                    if (result.cancelled) return
+                    setExportStatus(
+                      result.success
+                        ? { type: 'success', message: 'Exported ✓' }
+                        : { type: 'error', message: result.error || 'Export failed' }
+                    )
+                  }}
+                />
+              </div>
+            </div>
+
+            <FlatDivider />
+
+            {/* Utilities — fully flat, single two-column row */}
+            <FlatSectionTitle>Utilities</FlatSectionTitle>
+            <FlatRow label="Open Config Folder">
+              <SubtleButton
+                label="Open Folder"
+                disabled={false}
+                onClick={() => {
+                  window.electronAPI.openConfigFolder()
+                }}
+              />
+            </FlatRow>
+
+            <FlatDivider />
+
+            {/* Developer — fully flat, single two-column row */}
+            <FlatSectionTitle>Developer</FlatSectionTitle>
+            <FlatRow label="Debug Mode">
+              <Toggle checked={settings.advanced.debugMode} onChange={(v) => {
+                update('advanced', 'debugMode', v)
+                window.electronAPI.setDebugMode(v)
+              }} />
+            </FlatRow>
+
+            <FlatDivider />
+
+            {/* Danger Zone — subtle red tint, no hard border, bottom of the tab */}
+            <FlatSectionTitle color="rgba(255,90,60,0.7)">Danger Zone</FlatSectionTitle>
+            <div style={{ background: 'rgba(255,90,60,0.04)', borderRadius: '10px', padding: '14px 16px' }}>
+              <p style={{ fontSize: '11px', color: 'rgba(255,255,255,0.4)', margin: '0 0 10px' }}>
+                These actions permanently erase data.
+              </p>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '16px' }}>
+                <span style={{ fontSize: '14px', color: 'rgba(255,255,255,0.9)', fontWeight: 500 }}>Reset Lifetime Stats</span>
+                <DangerButton
+                  label="Reset"
+                  onClick={async () => {
+                    if (window.confirm('This will permanently erase all lifetime stats and heatmap data. Continue?')) {
+                      await window.electronAPI.resetLifetimeStats()
+                      setHeatmapData({ lifetime: emptyHeatmapSet, session: emptyHeatmapSet })
+                    }
+                  }}
+                />
+              </div>
+            </div>
           </div>
         )
+      }
 
       default:
         return null
@@ -1030,6 +1389,7 @@ export default function Settings() {
       flexDirection: 'column',
       color: 'rgba(255,255,255,0.9)',
     }}>
+      <DesignSystemStyles />
       {/* Titlebar wrapper */}
       <div style={{
         height: '60px',
@@ -1068,7 +1428,7 @@ export default function Settings() {
                 padding: '6px 12px',
                 borderRadius: '8px',
                 cursor: 'pointer',
-                backgroundColor: activeTab === tab.id ? 'rgba(255,255,255,0.08)' : 
+                backgroundColor: activeTab === tab.id ? 'rgba(255,255,255,0.08)' :
                                 hoveredTab === tab.id ? 'rgba(255,255,255,0.04)' : 'transparent',
                 color: activeTab === tab.id ? '#ffffff' : 'rgba(255,255,255,0.6)',
                 fontSize: '13px',
@@ -1087,11 +1447,12 @@ export default function Settings() {
       {/* Content */}
       <div style={{
         flex: 1,
-        padding: '12px 28px 24px',
+        padding: '28px',
         overflowY: 'auto',
         maxWidth: '440px',
         margin: '0 auto',
         width: '100%',
+        boxSizing: 'border-box',
       }}>
         {renderContent()}
       </div>

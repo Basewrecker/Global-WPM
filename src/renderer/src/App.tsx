@@ -15,9 +15,14 @@ interface WPMStats {
   }
   opacity: number
   blur: boolean
+  wpmSmoothing: number
+  idleDecay: boolean
+  debug: boolean
+  debugInfo: { displayId: number | null; windowBounds: { x: number; y: number; width: number; height: number } } | null
 }
 
 const IDLE_THRESHOLD_MS = 3000
+const DEBUG_STRIP_HEIGHT = 16
 
 function App() {
   const [displayWpm, setDisplayWpm] = useState(0)
@@ -26,11 +31,18 @@ function App() {
   const [smartColouring, setSmartColouring] = useState(true)
   const [, setOpacity] = useState(0.9)
   const [blurEnabled, setBlurEnabled] = useState(false)
+  const [debugMode, setDebugMode] = useState(false)
+  const [debugInfo, setDebugInfo] = useState<WPMStats['debugInfo']>(null)
+  const [fps, setFps] = useState(0)
 
   const rawWpmRef = useRef(0)
   const displayWpmRef = useRef(0)
   const lastKeyTimeRef = useRef(0)
   const blurRef = useRef(false)
+  const wpmSmoothingRef = useRef(0.15)
+  const idleDecayRef = useRef(true)
+  const fpsRef = useRef(0)
+  const lastFrameTimeRef = useRef(0)
   const colorRangesRef = useRef<WPMStats['colorRanges']>({
     low: '#ef4444',
     mid: '#eab308',
@@ -40,7 +52,7 @@ function App() {
 
   const defaultColor = '#9CA3AF'
 
-  const fontSize = textSize === 'large' ? '50px' : '44px'
+  const fontSize = textSize === 'large' ? '48px' : '42px'
   const labelSize = '13px'
 
   useEffect(() => {
@@ -58,6 +70,10 @@ function App() {
       if (stats.colorRanges) {
         colorRangesRef.current = stats.colorRanges
       }
+      wpmSmoothingRef.current = stats.wpmSmoothing ?? 0.15
+      idleDecayRef.current = stats.idleDecay ?? true
+      setDebugMode(stats.debug ?? false)
+      setDebugInfo(stats.debugInfo ?? null)
     })
     return () => unsubscribe()
   }, [])
@@ -85,6 +101,18 @@ function App() {
     
     const animate = () => {
       const now = Date.now()
+
+      const perfNow = performance.now()
+      if (lastFrameTimeRef.current > 0) {
+        const delta = perfNow - lastFrameTimeRef.current
+        if (delta > 0) {
+          const instantFps = 1000 / delta
+          fpsRef.current = fpsRef.current === 0 ? instantFps : fpsRef.current * 0.9 + instantFps * 0.1
+          setFps(Math.round(fpsRef.current))
+        }
+      }
+      lastFrameTimeRef.current = perfNow
+
       const lastKeyTime = lastKeyTimeRef.current
       let rawWpm = rawWpmRef.current
       let displayWpm = displayWpmRef.current
@@ -93,21 +121,26 @@ function App() {
         displayWpm = 0
       } else {
         const isIdle = lastKeyTime > 0 && (now - lastKeyTime) > IDLE_THRESHOLD_MS
-        
+
         if (isIdle) {
-          if (rawWpm > 0) {
-            rawWpm *= 0.92
-            if (rawWpm < 1) rawWpm = 0
-            rawWpmRef.current = rawWpm
+          if (idleDecayRef.current) {
+            if (rawWpm > 0) {
+              rawWpm *= 0.92
+              if (rawWpm < 1) rawWpm = 0
+              rawWpmRef.current = rawWpm
+            }
+
+            if (displayWpm > 0) {
+              displayWpm *= 0.92
+              if (displayWpm < 1) displayWpm = 0
+            }
           }
-          
-          if (displayWpm > 0) {
-            displayWpm *= 0.92
-            if (displayWpm < 1) displayWpm = 0
-          }
+          // idleDecay off: hold the last value until the backend's inactivity
+          // reset sends a fresh wpm:update (wpm 0 / lastKeyTime 0).
         } else {
           if (rawWpm > 0) {
-            displayWpm += (rawWpm - displayWpm) * 0.4
+            const easeFactor = 1 - wpmSmoothingRef.current
+            displayWpm += (rawWpm - displayWpm) * easeFactor
           }
         }
       }
@@ -137,7 +170,7 @@ function App() {
 
   return (
     <div
-      className="flex items-center justify-center overflow-hidden select-none cursor-default overlay-drag"
+      className="flex flex-col overflow-hidden select-none cursor-default overlay-drag"
       style={{
         position: 'fixed',
         inset: 0,
@@ -155,34 +188,57 @@ function App() {
         WebkitUserSelect: 'none',
       }}
     >
-      <div className="flex flex-row items-baseline justify-start" style={{ gap: '4px', width: '100%', paddingLeft: '6px' }}>
-        <span
-          className="leading-none"
-          style={{
-            fontSize,
-            fontWeight: 700,
-            lineHeight: 1,
-            color: wpmColor,
-            letterSpacing: '-0.02em',
-            fontVariantNumeric: 'tabular-nums',
-          }}
-        >
-          {Math.round(displayWpm)}
-        </span>
-        <span
-          className="leading-none"
-          style={{
-            fontSize: labelSize,
-            fontWeight: 600,
-            lineHeight: 1,
-            color: 'rgba(255, 255, 255, 0.55)',
-            letterSpacing: '0.05em',
-            textTransform: 'uppercase',
-          }}
-        >
-          WPM
-        </span>
+      <div className="flex items-center justify-center" style={{ flex: 1, minHeight: 0, width: '100%' }}>
+        <div className="flex flex-row items-baseline justify-start" style={{ gap: '4px', width: '100%', paddingLeft: '6px' }}>
+          <span
+            className="leading-none"
+            style={{
+              fontSize,
+              fontWeight: 700,
+              lineHeight: 1,
+              color: wpmColor,
+              letterSpacing: '-0.02em',
+              fontVariantNumeric: 'tabular-nums',
+            }}
+          >
+            {Math.round(displayWpm)}
+          </span>
+          <span
+            className="leading-none"
+            style={{
+              fontSize: labelSize,
+              fontWeight: 600,
+              lineHeight: 1,
+              color: 'rgba(255, 255, 255, 0.55)',
+              letterSpacing: '0.05em',
+              textTransform: 'uppercase',
+            }}
+          >
+            WPM
+          </span>
+        </div>
       </div>
+      {debugMode && (
+        <div style={{
+          height: `${DEBUG_STRIP_HEIGHT}px`,
+          flexShrink: 0,
+          display: 'flex',
+          alignItems: 'center',
+          paddingLeft: '6px',
+          paddingRight: '6px',
+          fontSize: '7px',
+          lineHeight: 1,
+          fontFamily: 'ui-monospace, SFMono-Regular, monospace',
+          color: 'rgba(255,255,255,0.4)',
+          whiteSpace: 'nowrap',
+          overflow: 'hidden',
+          textOverflow: 'ellipsis',
+          borderTop: '1px solid rgba(255,255,255,0.06)',
+          pointerEvents: 'none',
+        }}>
+          R:{Math.round(rawWpmRef.current)} D:{Math.round(displayWpm)} {fps}fps{debugInfo ? ` · D${debugInfo.displayId ?? '–'} ${Math.round(debugInfo.windowBounds.x)},${Math.round(debugInfo.windowBounds.y)} ${debugInfo.windowBounds.width}×${debugInfo.windowBounds.height}` : ''}
+        </div>
+      )}
     </div>
   )
 }

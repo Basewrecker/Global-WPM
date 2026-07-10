@@ -88,11 +88,17 @@ const KEYCODE_TO_NAME: Record<number, string> = {
   [UiohookKey.Slash]: 'slash',
 }
 
-const ROLLING_WINDOW_MS = 10000
 const MIN_TIME_SEC = 1.5
 
 export const MIN_SESSION_KEYS = 20
 export const MIN_SESSION_MS = 8000
+
+// Gated verbose logging — silent unless Advanced > Debug Mode is on.
+function debugLog(...args: unknown[]) {
+  if (getSettings().advanced?.debugMode) {
+    console.log('[DEBUG][tracker]', ...args)
+  }
+}
 
 const stats = {
   lifetime: {
@@ -145,6 +151,8 @@ function handleKeyDown(event: { keycode: number; key?: string }) {
     key: `key${event.keycode}`,
     timestamp: now
   })
+
+  debugLog('key event', { keyName: keyName ?? `code${event.keycode}`, sessionKeystrokes: stats.session.keystrokes })
 }
 
 function handleError(error: Error) {
@@ -187,7 +195,8 @@ function calculateWPM(): WPMStats {
     return { wpm: 0, charCount: 0, timeWindowMs: 0, lastKeyTime: 0 }
   }
   
-  const windowStart = now - ROLLING_WINDOW_MS
+  const rollingWindowMs = settings.behaviour?.rollingWindowMs ?? 10000
+  const windowStart = now - rollingWindowMs
   const recentKeystrokes = keystrokes.filter(k => k.timestamp > windowStart)
   
   if (recentKeystrokes.length === 0) {
@@ -214,6 +223,8 @@ function calculateWPM(): WPMStats {
     stats.session.highestWpm = wpm
   }
   wpmSamples.push(wpm)
+
+  debugLog('wpm calc', { wpm, charCount: recentKeystrokes.length, actualWindowMs, rollingWindowMs })
 
   return {
     wpm: Math.max(0, wpm),

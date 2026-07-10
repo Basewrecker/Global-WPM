@@ -28,6 +28,9 @@ export interface Settings {
   behaviour: {
     inactivityTimeout: number
     minKeystrokes: number
+    rollingWindowMs: number
+    wpmSmoothing: number
+    idleDecay: boolean
   }
   tracking: {
     trackAccuracy: boolean
@@ -66,6 +69,9 @@ const defaultSettings: Settings = {
   behaviour: {
     inactivityTimeout: 3500,
     minKeystrokes: 10,
+    rollingWindowMs: 10000,
+    wpmSmoothing: 0.15,
+    idleDecay: true,
   },
   tracking: {
     trackAccuracy: false,
@@ -196,6 +202,20 @@ function validateSettings(s: Settings): Settings {
   validated.behaviour.minKeystrokes = typeof minKeys === 'number'
     ? Math.max(1, Math.round(minKeys))
     : defaultSettings.behaviour.minKeystrokes
+
+  const rollingWindowMs = s.behaviour?.rollingWindowMs
+  validated.behaviour.rollingWindowMs = typeof rollingWindowMs === 'number'
+    ? Math.min(30000, Math.max(5000, rollingWindowMs))
+    : defaultSettings.behaviour.rollingWindowMs
+
+  const wpmSmoothing = s.behaviour?.wpmSmoothing
+  validated.behaviour.wpmSmoothing = typeof wpmSmoothing === 'number'
+    ? Math.min(0.5, Math.max(0, wpmSmoothing))
+    : defaultSettings.behaviour.wpmSmoothing
+
+  validated.behaviour.idleDecay = typeof s.behaviour?.idleDecay === 'boolean'
+    ? s.behaviour.idleDecay
+    : defaultSettings.behaviour.idleDecay
 
   validated.tracking.trackAccuracy = typeof s.tracking?.trackAccuracy === 'boolean'
     ? s.tracking.trackAccuracy
